@@ -1,0 +1,1052 @@
+{
+  "definitions": {
+    "F_PO_PROCESSING_TIME_APT": {
+      "kind": "entity",
+      "elements": {
+        "PURCHASEORDER": {
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchase Order Number",
+          "type": "cds.String",
+          "length": 10,
+          "key": true,
+          "notNull": true
+        },
+        "CREATIONDATE": {
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Creation Date of Purchasing Document",
+          "type": "cds.String",
+          "length": 8
+        },
+        "COMPANYCODE": {
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Company Code",
+          "type": "cds.String",
+          "length": 4
+        },
+        "PURCHASINGORGANIZATION": {
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchasing Organization",
+          "type": "cds.String",
+          "length": 4
+        },
+        "PURCHASINGGROUP": {
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchasing Group",
+          "type": "cds.String",
+          "length": 3
+        },
+        "SUPPLIER": {
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Supplier",
+          "type": "cds.String",
+          "length": 10
+        },
+        "FINAL_DELIVERY_DATE": {
+          "@EndUserText.label": "FINAL_DELIVERY_DATE",
+          "type": "cds.String",
+          "length": 8
+        },
+        "Order_Creation_Date": {
+          "@EndUserText.label": "Order Creation Date",
+          "type": "cds.Date"
+        },
+        "Order_Delivery_Date": {
+          "@EndUserText.label": "Order Delivery Date",
+          "type": "cds.Date"
+        },
+        "Total_Delivered_Order": {
+          "@EndUserText.label": "Total Delivered Order",
+          "type": "cds.Integer",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          },
+          "@Aggregation.default": {
+            "#": "SUM"
+          }
+        },
+        "Processing_Days": {
+          "@EndUserText.label": "Processing Days",
+          "type": "cds.Integer",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          },
+          "@Aggregation.default": {
+            "#": "SUM"
+          }
+        }
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "SELECT": {
+              "from": {
+                "SELECT": {
+                  "from": {
+                    "join": "inner",
+                    "cardinality": {
+                      "src": 1,
+                      "max": 1
+                    },
+                    "args": [
+                      {
+                        "ref": [
+                          "ZIPOHDRAPT"
+                        ],
+                        "as": "ZIPOHDRAPT"
+                      },
+                      {
+                        "ref": [
+                          "V_PO_FINAL_DELIVERY_APT"
+                        ],
+                        "as": "V_PO_FINAL_DELIVERY_APT"
+                      }
+                    ],
+                    "on": [
+                      {
+                        "ref": [
+                          "ZIPOHDRAPT",
+                          "PURCHASEORDER"
+                        ]
+                      },
+                      "=",
+                      {
+                        "ref": [
+                          "V_PO_FINAL_DELIVERY_APT",
+                          "PURCHASEORDER"
+                        ]
+                      }
+                    ]
+                  },
+                  "columns": [
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "PURCHASEORDER"
+                      ],
+                      "key": true
+                    },
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "CREATIONDATE"
+                      ]
+                    },
+                    {
+                      "ref": [
+                        "V_PO_FINAL_DELIVERY_APT",
+                        "FINAL_DELIVERY_DATE"
+                      ]
+                    },
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "COMPANYCODE"
+                      ]
+                    },
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "PURCHASINGORGANIZATION"
+                      ]
+                    },
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "PURCHASINGGROUP"
+                      ]
+                    },
+                    {
+                      "ref": [
+                        "ZIPOHDRAPT",
+                        "SUPPLIER"
+                      ]
+                    }
+                  ]
+                },
+                "as": "Join 1"
+              },
+              "columns": [
+                {
+                  "ref": [
+                    "Join 1",
+                    "PURCHASEORDER"
+                  ],
+                  "key": true
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "CREATIONDATE"
+                  ]
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "FINAL_DELIVERY_DATE"
+                  ]
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "COMPANYCODE"
+                  ]
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "PURCHASINGORGANIZATION"
+                  ]
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "PURCHASINGGROUP"
+                  ]
+                },
+                {
+                  "ref": [
+                    "Join 1",
+                    "SUPPLIER"
+                  ]
+                },
+                {
+                  "xpr": [
+                    {
+                      "func": "DAYS_BETWEEN",
+                      "args": [
+                        {
+                          "ref": [
+                            "$projection",
+                            "Order_Creation_Date"
+                          ]
+                        },
+                        {
+                          "ref": [
+                            "$projection",
+                            "Order_Delivery_Date"
+                          ]
+                        }
+                      ]
+                    },
+                    "+",
+                    {
+                      "val": 1
+                    }
+                  ],
+                  "as": "Processing_Days"
+                },
+                {
+                  "val": 1,
+                  "as": "Total_Delivered_Order"
+                },
+                {
+                  "func": "TO_DATE",
+                  "args": [
+                    {
+                      "xpr": [
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "FINAL_DELIVERY_DATE"
+                              ]
+                            },
+                            {
+                              "val": 1
+                            },
+                            {
+                              "val": 4
+                            }
+                          ]
+                        },
+                        "||",
+                        {
+                          "val": "-"
+                        },
+                        "||",
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "FINAL_DELIVERY_DATE"
+                              ]
+                            },
+                            {
+                              "val": 5
+                            },
+                            {
+                              "val": 2
+                            }
+                          ]
+                        },
+                        "||",
+                        {
+                          "val": "-"
+                        },
+                        "||",
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "FINAL_DELIVERY_DATE"
+                              ]
+                            },
+                            {
+                              "val": 7
+                            },
+                            {
+                              "val": 2
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "as": "Order_Delivery_Date"
+                },
+                {
+                  "func": "TO_DATE",
+                  "args": [
+                    {
+                      "xpr": [
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "CREATIONDATE"
+                              ]
+                            },
+                            {
+                              "val": 1
+                            },
+                            {
+                              "val": 4
+                            }
+                          ]
+                        },
+                        "||",
+                        {
+                          "val": "-"
+                        },
+                        "||",
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "CREATIONDATE"
+                              ]
+                            },
+                            {
+                              "val": 5
+                            },
+                            {
+                              "val": 2
+                            }
+                          ]
+                        },
+                        "||",
+                        {
+                          "val": "-"
+                        },
+                        "||",
+                        {
+                          "func": "SUBSTRING",
+                          "args": [
+                            {
+                              "ref": [
+                                "Join 1",
+                                "CREATIONDATE"
+                              ]
+                            },
+                            {
+                              "val": 7
+                            },
+                            {
+                              "val": 2
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "as": "Order_Creation_Date"
+                }
+              ]
+            },
+            "as": "Calculated Columns 1"
+          },
+          "columns": [
+            {
+              "ref": [
+                "PURCHASEORDER"
+              ],
+              "key": true
+            },
+            {
+              "ref": [
+                "CREATIONDATE"
+              ]
+            },
+            {
+              "ref": [
+                "COMPANYCODE"
+              ]
+            },
+            {
+              "ref": [
+                "PURCHASINGORGANIZATION"
+              ]
+            },
+            {
+              "ref": [
+                "PURCHASINGGROUP"
+              ]
+            },
+            {
+              "ref": [
+                "SUPPLIER"
+              ]
+            },
+            {
+              "ref": [
+                "FINAL_DELIVERY_DATE"
+              ]
+            },
+            {
+              "ref": [
+                "Order_Creation_Date"
+              ]
+            },
+            {
+              "ref": [
+                "Order_Delivery_Date"
+              ]
+            },
+            {
+              "ref": [
+                "Total_Delivered_Order"
+              ]
+            },
+            {
+              "ref": [
+                "Processing_Days"
+              ]
+            }
+          ],
+          "where": [
+            {
+              "ref": [
+                "Calculated Columns 1",
+                "Processing_Days"
+              ]
+            },
+            ">=",
+            {
+              "val": 0
+            }
+          ]
+        }
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "DATA_STRUCTURE"
+        }
+      ],
+      "@EndUserText.label": "PO Processing Time Fact APT",
+      "@ObjectModel.modelingPattern": {
+        "#": "ANALYTICAL_FACT"
+      },
+      "@DataWarehouse.consumption.external": true,
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": "Folder_TIUITSOG"
+        }
+      }
+    },
+    "ZIPOHDRAPT": {
+      "kind": "entity",
+      "elements": {
+        "PURCHASEORDER": {
+          "@EndUserText.label": "Purchase Order Number",
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "key": true,
+          "notNull": true
+        },
+        "CREATIONDATE": {
+          "@EndUserText.label": "Creation Date of Purchasing Document",
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ]
+        },
+        "COMPANYCODE": {
+          "@EndUserText.label": "Company Code",
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ]
+        },
+        "PURCHASINGORGANIZATION": {
+          "@EndUserText.label": "Purchasing Organization",
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ]
+        },
+        "PURCHASINGGROUP": {
+          "@EndUserText.label": "Purchasing Group",
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ]
+        },
+        "SUPPLIER": {
+          "@EndUserText.label": "Supplier",
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ]
+        }
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "SQL_DATA_SOURCE"
+        },
+        {
+          "#": "DATA_STRUCTURE"
+        }
+      ],
+      "@EndUserText.label": "Purchase Order Header Extract for APT - Master Data Attributes",
+      "@ObjectModel.modelingPattern": {
+        "#": "DATA_STRUCTURE"
+      },
+      "@DataWarehouse.remote.connection": "S3X_Training_2026_1",
+      "@DataWarehouse.remote.entity": "ABAP_CDS.ZIPOHDRAPT$P",
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": "Folder_TIUITSOG"
+        }
+      }
+    },
+    "ZIPOHISTEXT": {
+      "kind": "entity",
+      "@DataWarehouse.remote.connection": "S3X_Training_2026_1",
+      "@DataWarehouse.remote.entity": "ABAP_CDS.ZIPOHISTEXT$F",
+      "elements": {
+        "PURCHASEORDER": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchasing Document Number",
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASEORDERITEM": {
+          "type": "cds.String",
+          "length": 5,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Item Number of Purchasing Document",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "ACCOUNTASSIGNMENTNUMBER": {
+          "type": "cds.String",
+          "length": 2,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Sequential Number of Account Assignment",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASINGHISTORYDOCUMENTTYPE": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Transaction/event type, purchase order history",
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASINGHISTORYDOCUMENTYEAR": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Material Document Year",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASINGHISTORYDOCUMENT": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Number of Material Document",
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASINGHISTORYDOCUMENTITEM": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Item in Material Document",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "PURCHASINGHISTORYCATEGORY": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchase Order History Category",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "GOODSMOVEMENTTYPE": {
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Movement Type (Inventory Management)",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "POSTINGDATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Posting Date in the Document",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "DEBITCREDITCODE": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Debit/Credit Indicator",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "QUANTITY": {
+          "type": "cds.Decimal",
+          "precision": 17,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "DELIVERYQUANTITYUNIT": {
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "LIKE"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Unit of Measure From Delivery Note",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        }
+      },
+      "@ObjectModel.modelingPattern": {
+        "#": "DATA_STRUCTURE"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "DATA_STRUCTURE"
+        },
+        {
+          "#": "SQL_DATA_SOURCE"
+        }
+      ],
+      "@EndUserText.label": "PO History Extract for Datasphere - Transaction Data",
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": "Folder_TIUITSOG"
+        }
+      }
+    },
+    "V_PO_FINAL_DELIVERY_APT": {
+      "kind": "entity",
+      "elements": {
+        "PURCHASEORDER": {
+          "@EndUserText.label": "Purchasing Document Number",
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "key": true,
+          "notNull": true
+        },
+        "FINAL_DELIVERY_DATE": {
+          "@EndUserText.label": "FINAL_DELIVERY_DATE",
+          "type": "cds.String",
+          "length": 8
+        }
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "ref": [
+              "ZIPOHISTEXT"
+            ]
+          },
+          "columns": [
+            {
+              "ref": [
+                "PURCHASEORDER"
+              ]
+            },
+            {
+              "func": "MAX",
+              "args": [
+                {
+                  "ref": [
+                    "POSTINGDATE"
+                  ]
+                }
+              ],
+              "as": "FINAL_DELIVERY_DATE"
+            }
+          ],
+          "groupBy": [
+            {
+              "ref": [
+                "PURCHASEORDER"
+              ]
+            }
+          ],
+          "where": [
+            {
+              "ref": [
+                "GOODSMOVEMENTTYPE"
+              ]
+            },
+            "=",
+            {
+              "val": "101"
+            },
+            "and",
+            {
+              "ref": [
+                "POSTINGDATE"
+              ]
+            },
+            "is",
+            "not",
+            "null",
+            "and",
+            {
+              "ref": [
+                "POSTINGDATE"
+              ]
+            },
+            "<>",
+            {
+              "val": ""
+            },
+            "and",
+            {
+              "ref": [
+                "POSTINGDATE"
+              ]
+            },
+            "<>",
+            {
+              "val": "00000000"
+            }
+          ]
+        }
+      },
+      "@EndUserText.label": "PO Final Delivery APT",
+      "@ObjectModel.modelingPattern": {
+        "#": "DATA_STRUCTURE"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "DATA_STRUCTURE"
+        }
+      ],
+      "@DataWarehouse.consumption.external": false,
+      "@DataWarehouse.sqlEditor.query": "SELECT\r\n    \"PURCHASEORDER\",\r\n    MAX(\"POSTINGDATE\") AS \"FINAL_DELIVERY_DATE\"\r\nFROM \"ZIPOHISTEXT\"\r\nWHERE \"GOODSMOVEMENTTYPE\" = '101'\r\n  AND \"POSTINGDATE\" IS NOT NULL\r\n  AND \"POSTINGDATE\" <> ''\r\n  AND \"POSTINGDATE\" <> '00000000'\r\nGROUP BY\r\n    \"PURCHASEORDER\"",
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": "Folder_TIUITSOG"
+        }
+      }
+    }
+  },
+  "version": {
+    "csn": "1.0"
+  },
+  "meta": {
+    "creator": "CDS Compiler v1.19.2"
+  },
+  "editorSettings": {
+    "F_PO_PROCESSING_TIME_APT": {
+      "editor": {
+        "lastModifier": "GRAPHICALVIEWBUILDER",
+        "default": "GRAPHICALVIEWBUILDER"
+      },
+      "uiModel": "{\"contents\":{\"5ccd8b8a-4f92-45f2-992f-4aa4155d185c\":{\"classDefinition\":\"sap.cdw.querybuilder.Model\",\"name\":\"F_PO_PROCESSING_TIME_APT\",\"label\":\"PO Processing Time Fact APT\",\"modificationDate\":1785739161609,\"deploymentDate\":1785739161609,\"#objectStatus\":2,\"output\":\"8d61573e-d25a-412d-a3fb-8374dc826f8f\",\"nodes\":{\"8d61573e-d25a-412d-a3fb-8374dc826f8f\":{\"name\":\"F_PO_PROCESSING_TIME_APT\"},\"422ae301-6874-4db3-8bae-56afcc0eeebd\":{\"name\":\"ZIPOHDRAPT\"},\"855ae62b-060d-4f1e-8eec-ddb66fb6fe76\":{\"name\":\"V_PO_FINAL_DELIVERY_APT\"},\"f0dc6a5d-6633-451f-b472-44c9288adc65\":{\"name\":\"Join 1\"},\"3c1da18e-53fd-4440-919f-9bbcdda99324\":{\"name\":\"Projection 1\"},\"e2092a34-b484-4b80-84f3-1ddbe59c6878\":{\"name\":\"Calculated Columns 1\"},\"e337bffe-40b5-4fcc-b644-3b8c82107141\":{\"name\":\"Filter 1\"}},\"diagrams\":{\"62eaa03c-5011-40df-8d08-3c64db33e246\":{}}},\"8d61573e-d25a-412d-a3fb-8374dc826f8f\":{\"classDefinition\":\"sap.cdw.querybuilder.Output\",\"name\":\"F_PO_PROCESSING_TIME_APT\",\"type\":\"graphicView\",\"isDeltaOutboundOn\":false,\"isDeletionVector\":false,\"isPinToMemoryEnabled\":false,\"dataCategory\":\"SQLFACT\",\"modificationDate\":1785739161609,\"deploymentDate\":1785739161609,\"#objectStatus\":2,\"elements\":{\"b2dbbd40-9755-4361-85cd-21fe24b0281c\":{\"name\":\"PURCHASEORDER\"},\"8ec733a8-bf26-456c-89c8-dc2c1968bf4d\":{\"name\":\"CREATIONDATE\"},\"b439e6a5-a040-4542-9bc1-7a03ce649cc8\":{\"name\":\"COMPANYCODE\"},\"656d34d3-453a-443b-87a5-8f0bb391f21d\":{\"name\":\"PURCHASINGORGANIZATION\"},\"6602f63c-c0d1-46d8-9c46-728ce4f8e354\":{\"name\":\"PURCHASINGGROUP\"},\"73772f1c-076f-4ace-be9d-5ddf6b86730d\":{\"name\":\"SUPPLIER\"},\"a48fb489-ee15-45fd-855d-52be71202b25\":{\"name\":\"FINAL_DELIVERY_DATE\"},\"a34e6400-f32d-4964-9d20-cb4f103d1cb0\":{\"name\":\"Calculated_1\"},\"bb1b63d4-af8b-4693-a471-ce52dbd09cb6\":{\"name\":\"Calculated_1\"},\"025a75e4-1930-47be-93f6-3f3379a4492c\":{\"name\":\"Calculated_1\"},\"dbd9cf95-a397-49c3-aff9-e47bfc935105\":{\"name\":\"Calculated_1\"}}},\"422ae301-6874-4db3-8bae-56afcc0eeebd\":{\"classDefinition\":\"sap.cdw.querybuilder.Entity\",\"name\":\"ZIPOHDRAPT\",\"label\":\"Purchase Order Header Extract for APT - Master Data Attributes\",\"remote\":{\"connection\":\"S3X_Training_2026_1\",\"table\":\"ABAP_CDS.ZIPOHDRAPT$P\"},\"isDeltaOutboundOn\":false,\"isDeletionVector\":false,\"isPinToMemoryEnabled\":false,\"isAllowConsumption\":false,\"isHiddenInUi\":false,\"modificationDate\":1785912394210,\"deploymentDate\":1785912394210,\"#objectStatus\":\"1\",\"elements\":{\"958d9706-00b4-4d14-9f8b-0e6731895276\":{\"name\":\"PURCHASEORDER\"},\"d771e397-5293-48c0-aa44-b9718b1ece0f\":{\"name\":\"CREATIONDATE\"},\"7a89fb9a-f5c9-4f0f-821f-a16014b54ade\":{\"name\":\"COMPANYCODE\"},\"c7e0ffff-9b45-4524-b649-1f780519b563\":{\"name\":\"PURCHASINGORGANIZATION\"},\"938005ba-103c-4333-a21d-cc17b232b77f\":{\"name\":\"PURCHASINGGROUP\"},\"942f7706-472e-4c43-a317-c9c0526c3977\":{\"name\":\"SUPPLIER\"}},\"successorNode\":\"f0dc6a5d-6633-451f-b472-44c9288adc65\"},\"855ae62b-060d-4f1e-8eec-ddb66fb6fe76\":{\"classDefinition\":\"sap.cdw.querybuilder.Entity\",\"name\":\"V_PO_FINAL_DELIVERY_APT\",\"label\":\"PO Final Delivery APT\",\"type\":3,\"isDeltaOutboundOn\":false,\"isDeletionVector\":false,\"isPinToMemoryEnabled\":false,\"isAllowConsumption\":false,\"isHiddenInUi\":false,\"modificationDate\":1785912394210,\"deploymentDate\":1785912394210,\"#objectStatus\":\"1\",\"elements\":{\"50e4b5b9-c77a-479c-9d26-06328b3696d8\":{\"name\":\"PURCHASEORDER\"},\"ebcacc5a-9881-452b-afd7-2a47bfe59e7c\":{\"name\":\"FINAL_DELIVERY_DATE\"}},\"successorNode\":\"f0dc6a5d-6633-451f-b472-44c9288adc65\"},\"f0dc6a5d-6633-451f-b472-44c9288adc65\":{\"classDefinition\":\"sap.cdw.querybuilder.Join\",\"leftCardinality\":\"0,1\",\"rightCardinality\":\"0,1\",\"name\":\"Join 1\",\"mappings\":{\"aa14f9d1-e3d4-4804-9145-87ba4e67722d\":{}},\"leftInput\":\"422ae301-6874-4db3-8bae-56afcc0eeebd\",\"rightInput\":\"855ae62b-060d-4f1e-8eec-ddb66fb6fe76\",\"elements\":{\"edafa454-79bb-4a48-9b0f-7c783d22cf7d\":{\"name\":\"PURCHASEORDER\"},\"0f935730-2f34-4e92-adec-0fb4356d1b98\":{\"name\":\"CREATIONDATE\"},\"58640b3b-d802-4ba9-bdef-4df3499ef120\":{\"name\":\"COMPANYCODE\"},\"2ce38f03-852e-4b12-86d9-74eda2206ec4\":{\"name\":\"PURCHASINGORGANIZATION\"},\"79b78b00-cf27-4354-a892-ace37b248ae6\":{\"name\":\"PURCHASINGGROUP\"},\"a04399cc-ce55-4504-bc75-2ec84841085c\":{\"name\":\"SUPPLIER\"},\"d147d605-8b6d-4bb4-ab82-6e750145029e\":{\"name\":\"PURCHASEORDER\"},\"658ad159-21af-4843-99fb-121f27714624\":{\"name\":\"FINAL_DELIVERY_DATE\"}},\"successorNode\":\"3c1da18e-53fd-4440-919f-9bbcdda99324\"},\"3c1da18e-53fd-4440-919f-9bbcdda99324\":{\"classDefinition\":\"sap.cdw.querybuilder.RenameElements\",\"_isProjectionNode\":false,\"name\":\"Projection 1\",\"elements\":{\"38b9b1f6-6349-4c0d-95f0-f548cff62eb0\":{\"name\":\"PURCHASEORDER\"},\"b72cb175-35ff-4ec1-880c-1dacd2a7bcdb\":{\"name\":\"CREATIONDATE\"},\"96b72264-9145-45eb-856d-16eee3d78625\":{\"name\":\"COMPANYCODE\"},\"0a453197-aeff-4a7f-9c93-396c84a35ba0\":{\"name\":\"PURCHASINGORGANIZATION\"},\"8fb53223-4e86-41ad-b494-1f344bf71cb5\":{\"name\":\"PURCHASINGGROUP\"},\"faed79f1-5a74-49c9-bc1e-98bc459973ad\":{\"name\":\"SUPPLIER\"},\"4a3a395d-ba85-4723-9205-37313bee0324\":{\"name\":\"PURCHASEORDER\"},\"fbb426c1-be2c-4bcd-8cf5-76fc2d39f6d2\":{\"name\":\"FINAL_DELIVERY_DATE\"}},\"successorNode\":\"e2092a34-b484-4b80-84f3-1ddbe59c6878\"},\"e2092a34-b484-4b80-84f3-1ddbe59c6878\":{\"classDefinition\":\"sap.cdw.querybuilder.CalculatedElements\",\"name\":\"Calculated Columns 1\",\"elements\":{\"a0f7946c-6eee-404a-ac06-0d1926fbaab8\":{\"name\":\"PURCHASEORDER\"},\"15554179-8095-43e9-8662-d708945f6993\":{\"name\":\"CREATIONDATE\"},\"ad0ffcb0-a03a-4d91-83d7-40f1bab22f06\":{\"name\":\"COMPANYCODE\"},\"8fe3d338-e6be-471a-b736-742383ff0d64\":{\"name\":\"PURCHASINGORGANIZATION\"},\"fc0041ae-c228-470c-a5fd-529f8c0b96e4\":{\"name\":\"PURCHASINGGROUP\"},\"0665d2ec-2b33-42e1-bc80-5e389b704747\":{\"name\":\"SUPPLIER\"},\"84bffe3b-fdea-4172-b29a-d46eafca5c14\":{\"name\":\"FINAL_DELIVERY_DATE\"},\"df0625d8-1e4b-4c52-8850-6a1d1a19ad02\":{\"name\":\"Calculated_1\"},\"a1a73796-d6ce-4e11-a19f-aaba374d0eb7\":{\"name\":\"Calculated_1\"},\"7779c6f7-0817-415a-90e0-d511805ca01d\":{\"name\":\"Calculated_1\"},\"3078b8d1-3732-432d-82e4-90ed34f1df80\":{\"name\":\"Calculated_1\"}},\"successorNode\":\"e337bffe-40b5-4fcc-b644-3b8c82107141\"},\"e337bffe-40b5-4fcc-b644-3b8c82107141\":{\"classDefinition\":\"sap.cdw.querybuilder.Filter\",\"condition\":\"\\\"Processing_Days\\\" >= 0\",\"name\":\"Filter 1\",\"elements\":{\"42b59db5-0bf0-452f-a26c-9e349b9779a1\":{\"name\":\"PURCHASEORDER\"},\"00cfacf9-7a7c-49ae-95a7-43292ad2bc16\":{\"name\":\"CREATIONDATE\"},\"d3d0b230-5a4c-4360-85aa-c34903035cd3\":{\"name\":\"COMPANYCODE\"},\"d405d942-2e73-421d-9895-2ece379fcf3b\":{\"name\":\"PURCHASINGORGANIZATION\"},\"6726902d-f09c-4bbc-a39c-e8d85caa2bbf\":{\"name\":\"PURCHASINGGROUP\"},\"e380c639-9310-491e-bded-1c71bb9f1e68\":{\"name\":\"SUPPLIER\"},\"f457c3ba-96eb-474c-b4d4-46f620379631\":{\"name\":\"FINAL_DELIVERY_DATE\"},\"30afdc90-0598-4dcf-a895-39400c98a762\":{\"name\":\"Calculated_1\"},\"1254ea67-91ae-4611-9c45-11424f5767e2\":{\"name\":\"Calculated_1\"},\"759b149a-d219-4e9b-b5c1-7bcb9d1b9f89\":{\"name\":\"Calculated_1\"},\"32446b36-e9d6-4403-94b6-c088c6086d8e\":{\"name\":\"Calculated_1\"}},\"successorNode\":\"8d61573e-d25a-412d-a3fb-8374dc826f8f\"},\"62eaa03c-5011-40df-8d08-3c64db33e246\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.Diagram\",\"symbols\":{\"392d02dd-629e-4ec2-b0a0-de1694b0e3dd\":{},\"948c3b9d-8363-4cec-a626-974867b3bd89\":{},\"8189c0ec-fd14-47e0-9c8e-8e274879b678\":{\"name\":\"Entity Symbol 1\"},\"93d9a342-759d-445a-8a62-a7ac8163b9e6\":{},\"5a34f17f-5c5a-405b-8f13-31b87a08a029\":{},\"fda09825-daf1-4913-8c4d-3d1175fdd9f6\":{},\"fce26565-19f9-4c8a-bd8e-723326b50e60\":{},\"7ff70b9a-04ac-48a9-a5e9-501594c7439a\":{},\"21ba3bf0-677c-4597-8be5-7e82ca982008\":{},\"1e4125b2-dc84-4abc-a403-dba93500cef9\":{},\"86e4bfc3-bb83-4ef7-88f9-be960e0321f5\":{},\"817136c3-b009-4fc0-8969-20857dfd3bc4\":{},\"b1e180e1-7e26-4e4c-9db6-4067d6ce59a7\":{}}},\"b2dbbd40-9755-4361-85cd-21fe24b0281c\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"isCalculated\":true,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"8ec733a8-bf26-456c-89c8-dc2c1968bf4d\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":1,\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"b439e6a5-a040-4542-9bc1-7a03ce649cc8\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":2,\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"656d34d3-453a-443b-87a5-8f0bb391f21d\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":3,\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"6602f63c-c0d1-46d8-9c46-728ce4f8e354\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":4,\"isCalculated\":true,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"73772f1c-076f-4ace-be9d-5ddf6b86730d\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":5,\"isCalculated\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}]},\"a48fb489-ee15-45fd-855d-52be71202b25\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":7,\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false},\"a34e6400-f32d-4964-9d20-cb4f103d1cb0\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Creation Date\",\"newName\":\"Order_Creation_Date\",\"indexOrder\":7,\"expression\":\"\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false},\"bb1b63d4-af8b-4693-a471-ce52dbd09cb6\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Delivery Date\",\"newName\":\"Order_Delivery_Date\",\"indexOrder\":8,\"expression\":\"\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false},\"025a75e4-1930-47be-93f6-3f3379a4492c\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Total Delivered Order\",\"newName\":\"Total_Delivered_Order\",\"indexOrder\":10,\"expression\":\"\",\"isCalculated\":true,\"defaultAggregation\":\"SUM\",\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"isMeasure\":true},\"dbd9cf95-a397-49c3-aff9-e47bfc935105\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Processing Days\",\"newName\":\"Processing_Days\",\"indexOrder\":10,\"expression\":\"\",\"isCalculated\":true,\"defaultAggregation\":\"SUM\",\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"isMeasure\":true},\"958d9706-00b4-4d14-9f8b-0e6731895276\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"edafa454-79bb-4a48-9b0f-7c783d22cf7d\"},\"d771e397-5293-48c0-aa44-b9718b1ece0f\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":1,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"0f935730-2f34-4e92-adec-0fb4356d1b98\"},\"7a89fb9a-f5c9-4f0f-821f-a16014b54ade\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":2,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"58640b3b-d802-4ba9-bdef-4df3499ef120\"},\"c7e0ffff-9b45-4524-b649-1f780519b563\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":3,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"2ce38f03-852e-4b12-86d9-74eda2206ec4\"},\"938005ba-103c-4333-a21d-cc17b232b77f\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":4,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"79b78b00-cf27-4354-a892-ace37b248ae6\"},\"942f7706-472e-4c43-a317-c9c0526c3977\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":5,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"allowedExpressions\":[{\"#\":\"EQUAL\"},{\"#\":\"LIKE\"},{\"#\":\"BETWEEN\"}],\"successorElement\":\"a04399cc-ce55-4504-bc75-2ec84841085c\"},\"50e4b5b9-c77a-479c-9d26-06328b3696d8\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchasing Document Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"d147d605-8b6d-4bb4-ab82-6e750145029e\"},\"ebcacc5a-9881-452b-afd7-2a47bfe59e7c\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":1,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"658ad159-21af-4843-99fb-121f27714624\"},\"aa14f9d1-e3d4-4804-9145-87ba4e67722d\":{\"classDefinition\":\"sap.cdw.commonmodel.ElementMapping\",\"source\":\"958d9706-00b4-4d14-9f8b-0e6731895276\",\"target\":\"50e4b5b9-c77a-479c-9d26-06328b3696d8\"},\"edafa454-79bb-4a48-9b0f-7c783d22cf7d\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"38b9b1f6-6349-4c0d-95f0-f548cff62eb0\"},\"0f935730-2f34-4e92-adec-0fb4356d1b98\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":2,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"successorElement\":\"b72cb175-35ff-4ec1-880c-1dacd2a7bcdb\"},\"58640b3b-d802-4ba9-bdef-4df3499ef120\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":4,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"96b72264-9145-45eb-856d-16eee3d78625\"},\"2ce38f03-852e-4b12-86d9-74eda2206ec4\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":5,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"0a453197-aeff-4a7f-9c93-396c84a35ba0\"},\"79b78b00-cf27-4354-a892-ace37b248ae6\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":6,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"8fb53223-4e86-41ad-b494-1f344bf71cb5\"},\"a04399cc-ce55-4504-bc75-2ec84841085c\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":7,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"faed79f1-5a74-49c9-bc1e-98bc459973ad\"},\"d147d605-8b6d-4bb4-ab82-6e750145029e\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchasing Document Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":1,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"4a3a395d-ba85-4723-9205-37313bee0324\"},\"658ad159-21af-4843-99fb-121f27714624\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":3,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"fbb426c1-be2c-4bcd-8cf5-76fc2d39f6d2\"},\"38b9b1f6-6349-4c0d-95f0-f548cff62eb0\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"a0f7946c-6eee-404a-ac06-0d1926fbaab8\"},\"b72cb175-35ff-4ec1-880c-1dacd2a7bcdb\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":2,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"successorElement\":\"15554179-8095-43e9-8662-d708945f6993\"},\"96b72264-9145-45eb-856d-16eee3d78625\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":4,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"ad0ffcb0-a03a-4d91-83d7-40f1bab22f06\"},\"0a453197-aeff-4a7f-9c93-396c84a35ba0\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":5,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"8fe3d338-e6be-471a-b736-742383ff0d64\"},\"8fb53223-4e86-41ad-b494-1f344bf71cb5\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":6,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"fc0041ae-c228-470c-a5fd-529f8c0b96e4\"},\"faed79f1-5a74-49c9-bc1e-98bc459973ad\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":7,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"0665d2ec-2b33-42e1-bc80-5e389b704747\"},\"4a3a395d-ba85-4723-9205-37313bee0324\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchasing Document Number\",\"newName\":\"PURCHASEORDER\",\"isRemoved\":true,\"indexOrder\":1,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true},\"fbb426c1-be2c-4bcd-8cf5-76fc2d39f6d2\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":3,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"84bffe3b-fdea-4172-b29a-d46eafca5c14\"},\"a0f7946c-6eee-404a-ac06-0d1926fbaab8\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"expression\":\"PURCHASEORDER\",\"isCalculated\":true,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"42b59db5-0bf0-452f-a26c-9e349b9779a1\"},\"15554179-8095-43e9-8662-d708945f6993\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":1,\"expression\":\"CREATIONDATE\",\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"successorElement\":\"00cfacf9-7a7c-49ae-95a7-43292ad2bc16\"},\"ad0ffcb0-a03a-4d91-83d7-40f1bab22f06\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":2,\"expression\":\"COMPANYCODE\",\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"d3d0b230-5a4c-4360-85aa-c34903035cd3\"},\"8fe3d338-e6be-471a-b736-742383ff0d64\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":3,\"expression\":\"PURCHASINGORGANIZATION\",\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"d405d942-2e73-421d-9895-2ece379fcf3b\"},\"fc0041ae-c228-470c-a5fd-529f8c0b96e4\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":4,\"expression\":\"PURCHASINGGROUP\",\"isCalculated\":true,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"6726902d-f09c-4bbc-a39c-e8d85caa2bbf\"},\"0665d2ec-2b33-42e1-bc80-5e389b704747\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":5,\"expression\":\"SUPPLIER\",\"isCalculated\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"e380c639-9310-491e-bded-1c71bb9f1e68\"},\"84bffe3b-fdea-4172-b29a-d46eafca5c14\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":1,\"expression\":\"FINAL_DELIVERY_DATE\",\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"f457c3ba-96eb-474c-b4d4-46f620379631\"},\"df0625d8-1e4b-4c52-8850-6a1d1a19ad02\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Creation Date\",\"newName\":\"Order_Creation_Date\",\"indexOrder\":11,\"expression\":\"TO_DATE(\\r\\n    SUBSTRING(\\\"CREATIONDATE\\\", 1, 4)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"CREATIONDATE\\\", 5, 2)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"CREATIONDATE\\\", 7, 2)\\r\\n)\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"30afdc90-0598-4dcf-a895-39400c98a762\"},\"a1a73796-d6ce-4e11-a19f-aaba374d0eb7\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Delivery Date\",\"newName\":\"Order_Delivery_Date\",\"indexOrder\":10,\"expression\":\"TO_DATE(\\r\\n    SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 1, 4)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 5, 2)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 7, 2)\\r\\n)\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"1254ea67-91ae-4611-9c45-11424f5767e2\"},\"7779c6f7-0817-415a-90e0-d511805ca01d\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Total Delivered Order\",\"newName\":\"Total_Delivered_Order\",\"indexOrder\":8,\"expression\":\"1\",\"isCalculated\":true,\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"759b149a-d219-4e9b-b5c1-7bcb9d1b9f89\"},\"3078b8d1-3732-432d-82e4-90ed34f1df80\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Processing Days\",\"newName\":\"Processing_Days\",\"indexOrder\":7,\"expression\":\"DAYS_BETWEEN(\\r\\n    \\\"Order_Creation_Date\\\",\\r\\n    \\\"Order_Delivery_Date\\\"\\r\\n)+1\",\"isCalculated\":true,\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"32446b36-e9d6-4403-94b6-c088c6086d8e\"},\"42b59db5-0bf0-452f-a26c-9e349b9779a1\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASEORDER\",\"label\":\"Purchase Order Number\",\"newName\":\"PURCHASEORDER\",\"indexOrder\":0,\"expression\":\"PURCHASEORDER\",\"isCalculated\":true,\"isKey\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"isNotNull\":true,\"successorElement\":\"b2dbbd40-9755-4361-85cd-21fe24b0281c\"},\"00cfacf9-7a7c-49ae-95a7-43292ad2bc16\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"CREATIONDATE\",\"label\":\"Creation Date of Purchasing Document\",\"newName\":\"CREATIONDATE\",\"indexOrder\":1,\"expression\":\"CREATIONDATE\",\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"VARCHAR\",\"successorElement\":\"8ec733a8-bf26-456c-89c8-dc2c1968bf4d\"},\"d3d0b230-5a4c-4360-85aa-c34903035cd3\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"COMPANYCODE\",\"label\":\"Company Code\",\"newName\":\"COMPANYCODE\",\"indexOrder\":2,\"expression\":\"COMPANYCODE\",\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"b439e6a5-a040-4542-9bc1-7a03ce649cc8\"},\"d405d942-2e73-421d-9895-2ece379fcf3b\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGORGANIZATION\",\"label\":\"Purchasing Organization\",\"newName\":\"PURCHASINGORGANIZATION\",\"indexOrder\":3,\"expression\":\"PURCHASINGORGANIZATION\",\"isCalculated\":true,\"length\":4,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"656d34d3-453a-443b-87a5-8f0bb391f21d\"},\"6726902d-f09c-4bbc-a39c-e8d85caa2bbf\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"PURCHASINGGROUP\",\"label\":\"Purchasing Group\",\"newName\":\"PURCHASINGGROUP\",\"indexOrder\":4,\"expression\":\"PURCHASINGGROUP\",\"isCalculated\":true,\"length\":3,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"6602f63c-c0d1-46d8-9c46-728ce4f8e354\"},\"e380c639-9310-491e-bded-1c71bb9f1e68\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"SUPPLIER\",\"label\":\"Supplier\",\"newName\":\"SUPPLIER\",\"indexOrder\":5,\"expression\":\"SUPPLIER\",\"isCalculated\":true,\"length\":10,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"nativeDataType\":\"NVARCHAR\",\"successorElement\":\"73772f1c-076f-4ace-be9d-5ddf6b86730d\"},\"f457c3ba-96eb-474c-b4d4-46f620379631\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"FINAL_DELIVERY_DATE\",\"label\":\"FINAL_DELIVERY_DATE\",\"newName\":\"FINAL_DELIVERY_DATE\",\"indexOrder\":1,\"expression\":\"FINAL_DELIVERY_DATE\",\"isCalculated\":true,\"length\":8,\"precision\":0,\"scale\":0,\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"a48fb489-ee15-45fd-855d-52be71202b25\"},\"30afdc90-0598-4dcf-a895-39400c98a762\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Creation Date\",\"newName\":\"Order_Creation_Date\",\"indexOrder\":11,\"expression\":\"TO_DATE(\\r\\n    SUBSTRING(\\\"CREATIONDATE\\\", 1, 4)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"CREATIONDATE\\\", 5, 2)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"CREATIONDATE\\\", 7, 2)\\r\\n)\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"a34e6400-f32d-4964-9d20-cb4f103d1cb0\"},\"1254ea67-91ae-4611-9c45-11424f5767e2\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Order Delivery Date\",\"newName\":\"Order_Delivery_Date\",\"indexOrder\":10,\"expression\":\"TO_DATE(\\r\\n    SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 1, 4)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 5, 2)\\r\\n    || '-'\\r\\n    || SUBSTRING(\\\"FINAL_DELIVERY_DATE\\\", 7, 2)\\r\\n)\",\"isCalculated\":true,\"dataType\":\"cds.Date\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"bb1b63d4-af8b-4693-a471-ce52dbd09cb6\"},\"759b149a-d219-4e9b-b5c1-7bcb9d1b9f89\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Total Delivered Order\",\"newName\":\"Total_Delivered_Order\",\"indexOrder\":8,\"expression\":\"1\",\"isCalculated\":true,\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"025a75e4-1930-47be-93f6-3f3379a4492c\"},\"32446b36-e9d6-4403-94b6-c088c6086d8e\":{\"classDefinition\":\"sap.cdw.querybuilder.Element\",\"name\":\"Calculated_1\",\"label\":\"Processing Days\",\"newName\":\"Processing_Days\",\"indexOrder\":7,\"expression\":\"DAYS_BETWEEN(\\r\\n    \\\"Order_Creation_Date\\\",\\r\\n    \\\"Order_Delivery_Date\\\"\\r\\n)\",\"isCalculated\":true,\"dataType\":\"cds.Integer\",\"length\":0,\"precision\":0,\"scale\":0,\"precisionsTable\":\"SAP.CURRENCY.VIEW.TCURX\",\"configurationTable\":\"SAP.CURRENCY.VIEW.TCURV\",\"prefactorsTable\":\"SAP.CURRENCY.VIEW.TCURF\",\"ratesTable\":\"SAP.CURRENCY.VIEW.TCURR\",\"notationsTable\":\"SAP.CURRENCY.VIEW.TCURN\",\"conversionCodesTable\":\"SAP.CURRENCY.VIEW.TCURC\",\"isMeasureBeforeAI\":false,\"isMeasureAI\":false,\"isKeyBeforeAI\":false,\"isKeyAI\":false,\"successorElement\":\"dbd9cf95-a397-49c3-aff9-e47bfc935105\"},\"392d02dd-629e-4ec2-b0a0-de1694b0e3dd\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.OutputSymbol\",\"x\":266.9999988079071,\"y\":-42.077967356656394,\"width\":140,\"height\":40,\"object\":\"8d61573e-d25a-412d-a3fb-8374dc826f8f\"},\"948c3b9d-8363-4cec-a626-974867b3bd89\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.EntitySymbol\",\"_height\":40,\"x\":-382.9999988079071,\"y\":25,\"width\":168,\"object\":\"422ae301-6874-4db3-8bae-56afcc0eeebd\"},\"8189c0ec-fd14-47e0-9c8e-8e274879b678\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.EntitySymbol\",\"name\":\"Entity Symbol 1\",\"x\":-374.9999988079071,\"y\":-65,\"width\":160,\"displayName\":\"Entity Symbol 1\",\"object\":\"855ae62b-060d-4f1e-8eec-ddb66fb6fe76\"},\"93d9a342-759d-445a-8a62-a7ac8163b9e6\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.JoinSymbol\",\"font\":\"bold 11px \\\"72\\\",\\\"72full\\\",Arial,Helvetica,sans-serif\",\"x\":-145,\"y\":-29.541765346863286,\"object\":\"f0dc6a5d-6633-451f-b472-44c9288adc65\"},\"5a34f17f-5c5a-405b-8f13-31b87a08a029\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"points\":\"-214.9999988079071,45 -179.99999940395355,45 -179.99999940395355,-8.208432013529944 -145,-8.208432013529944\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"948c3b9d-8363-4cec-a626-974867b3bd89\",\"targetSymbol\":\"93d9a342-759d-445a-8a62-a7ac8163b9e6\",\"object\":\"f0dc6a5d-6633-451f-b472-44c9288adc65\"},\"fda09825-daf1-4913-8c4d-3d1175fdd9f6\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"isLeftInput\":false,\"points\":\"-214.9999988079071,-44.999999999999986 -179.99999940395355,-44.999999999999986 -179.99999940395355,-18.875098680196615 -145,-18.875098680196615\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"8189c0ec-fd14-47e0-9c8e-8e274879b678\",\"targetSymbol\":\"93d9a342-759d-445a-8a62-a7ac8163b9e6\",\"object\":\"f0dc6a5d-6633-451f-b472-44c9288adc65\"},\"fce26565-19f9-4c8a-bd8e-723326b50e60\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.RenameSymbol\",\"font\":\"bold 11px \\\"72\\\",\\\"72full\\\",Arial,Helvetica,sans-serif\",\"x\":-47,\"y\":-29.54176534686328,\"object\":\"3c1da18e-53fd-4440-919f-9bbcdda99324\"},\"7ff70b9a-04ac-48a9-a5e9-501594c7439a\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"points\":\"-97,-13.541765346863286 -47,-13.541765346863286\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"93d9a342-759d-445a-8a62-a7ac8163b9e6\",\"targetSymbol\":\"fce26565-19f9-4c8a-bd8e-723326b50e60\"},\"21ba3bf0-677c-4597-8be5-7e82ca982008\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.CalculatedSymbol\",\"font\":\"bold 11px \\\"72\\\",\\\"72full\\\",Arial,Helvetica,sans-serif\",\"x\":70.9999988079071,\"y\":-38.0779673566564,\"object\":\"e2092a34-b484-4b80-84f3-1ddbe59c6878\"},\"1e4125b2-dc84-4abc-a403-dba93500cef9\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"points\":\"1,-13.541765346863286 35.99999940395355,-13.541765346863286 35.99999940395355,-22.0779673566564 70.9999988079071,-22.0779673566564\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"fce26565-19f9-4c8a-bd8e-723326b50e60\",\"targetSymbol\":\"21ba3bf0-677c-4597-8be5-7e82ca982008\"},\"86e4bfc3-bb83-4ef7-88f9-be960e0321f5\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.FilterSymbol\",\"font\":\"bold 11px \\\"72\\\",\\\"72full\\\",Arial,Helvetica,sans-serif\",\"x\":168.9999988079071,\"y\":-38.077967356656394,\"object\":\"e337bffe-40b5-4fcc-b644-3b8c82107141\"},\"817136c3-b009-4fc0-8969-20857dfd3bc4\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"points\":\"118.9999988079071,-22.0779673566564 168.9999988079071,-22.0779673566564\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"21ba3bf0-677c-4597-8be5-7e82ca982008\",\"targetSymbol\":\"86e4bfc3-bb83-4ef7-88f9-be960e0321f5\"},\"b1e180e1-7e26-4e4c-9db6-4067d6ce59a7\":{\"classDefinition\":\"sap.cdw.querybuilder.ui.AssociationSymbol\",\"points\":\"216.9999988079071,-22.0779673566564 266.9999988079071,-22.0779673566564\",\"contentOffsetX\":5,\"contentOffsetY\":5,\"sourceSymbol\":\"86e4bfc3-bb83-4ef7-88f9-be960e0321f5\",\"targetSymbol\":\"392d02dd-629e-4ec2-b0a0-de1694b0e3dd\"}}}"
+    }
+  },
+  "$version": "1.0"
+}

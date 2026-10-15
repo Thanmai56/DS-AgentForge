@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ViewSpec",
+  "description": "DS ModelForge canonical intermediate model (§7.1). LLM writes this; Renderer converts to DS JSON.",
+  "type": "object",
+  "required": ["specVersion", "objectId", "layer", "kind", "operators"],
+  "properties": {
+    "specVersion":   { "type": "string" },
+    "objectId":      { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$", "description": "Uppercase, underscores, DS-safe name" },
+    "layer":         { "type": "string", "enum": ["L1", "L2", "L3", "L4"] },
+    "kind":          { "type": "string", "enum": ["graphical_view", "sql_view", "business_entity", "analytic_model"] },
+    "businessName":  { "type": "string" },
+    "description":   { "type": "string" },
+    "source": {
+      "type": "object",
+      "properties": {
+        "space":      { "type": "string" },
+        "schemaHash": { "type": "string" }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["alias", "objectRef"],
+        "properties": {
+          "alias":     { "type": "string" },
+          "objectRef": { "type": "string" }
+        }
+      }
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["op"],
+        "properties": {
+          "op": { "type": "string", "enum": ["join", "filter", "projection", "aggregation", "union", "cast"] },
+          "type": { "type": "string", "enum": ["inner", "left", "right", "full"] },
+          "left": { "type": "string" },
+          "right": { "type": "string" },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "left":  { "type": "string" },
+                "right": { "type": "string" }
+              }
+            }
+          },
+          "expression": { "type": "string" },
+          "rationale":  { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "orphanRatio": { "type": "number" },
+              "typeMatch":   { "type": "boolean" }
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "semantic"],
+              "properties": {
+                "name":        { "type": "string" },
+                "source":      { "type": "string" },
+                "semantic":    { "type": "string", "enum": ["key", "dimension", "measure", "text", "date", "unit"] },
+                "dataType":    { "type": "string" },
+                "aggregation": { "type": "string", "enum": ["SUM", "AVG", "COUNT", "MIN", "MAX", "COUNT_DISTINCT", "NONE"] },
+                "currencyKey": { "type": "string" },
+                "unitKey":     { "type": "string" },
+                "castTo":      { "type": "string" },
+                "businessName":{ "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "associations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "target", "cardinality", "conditions"],
+        "properties": {
+          "name":        { "type": "string" },
+          "target":      { "type": "string" },
+          "cardinality": { "type": "string", "enum": ["1..1", "1..n", "n..1", "n..m"] },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "left":  { "type": "string" },
+                "right": { "type": "string" }
+              }
+            }
+          },
+          "confidence": { "type": "number" },
+          "status":     { "type": "string", "enum": ["draft", "validated", "needs_review", "rejected"] },
+          "integrity":  { "type": "string", "enum": ["required", "notRequired"] }
+        }
+      }
+    },
+    "humanEdits": {
+      "type": "array",
+      "description": "Structured diff log — feeds golden examples",
+      "items": { "type": "object" }
+    },
+    "approval": {
+      "type": "object",
+      "properties": {
+        "state": { "type": "string", "enum": ["draft", "approved", "rejected"] },
+        "by":    { "type": ["string", "null"] },
+        "at":    { "type": ["string", "null"] }
+      }
+    }
+  }
+}

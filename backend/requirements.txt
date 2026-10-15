@@ -1,0 +1,51 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# ── Web Framework ─────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+websockets==12.0
+python-multipart==0.0.9
+
+
+# ── Auth ──────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+pyjwt==2.8.0
+argon2-cffi==23.1.0
+
+# ── LLM / Agent ───────────────────────────────────────────
+litellm==1.53.1
+langgraph==0.1.19
+langchain-core>=0.2.22,<0.3.0
+openai>=1.54.0
+anthropic>=0.29.0
+
+# ── Embeddings (local, no API needed) ─────────────────────
+sentence-transformers==3.0.1
+torch==2.3.0+cpu   # CPU-only for smaller image; remove +cpu for GPU
+torchvision==0.18.0+cpu
+
+# ── Datasphere / SAP ──────────────────────────────────────
+requests==2.32.3
+requests-oauthlib==2.0.0
+JayDeBeApi==1.2.3
+JPype1==1.5.0
+
+# ── Data / Profiling ──────────────────────────────────────
+pandas==2.2.2
+numpy==1.26.4
+
+# ── Serialization / Validation ────────────────────────────
+pydantic>=2.7.4,<3.0.0
+pydantic-settings>=2.3.1
+jsonschema==4.22.0
+
+# ── Export ────────────────────────────────────────────────
+# zipfile is part of Python standard library; zipfile36 is not needed
+
+# ── Utilities ─────────────────────────────────────────────
+python-dotenv==1.0.1
+httpx==0.27.0
+tenacity==8.3.0
+structlog==24.2.0
+rich==13.7.1

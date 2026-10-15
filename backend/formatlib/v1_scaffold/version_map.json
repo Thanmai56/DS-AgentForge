@@ -1,0 +1,28 @@
+{
+  "versions": {
+    "2024.Q3": {
+      "scaffold": "v1_scaffold",
+      "supports_analytic_model": true,
+      "supports_business_entity": true,
+      "supports_graphical_view": true,
+      "supports_sql_view": true,
+      "csn_version": "2.0"
+    },
+    "2024.Q4": {
+      "scaffold": "v1_scaffold",
+      "supports_analytic_model": true,
+      "supports_business_entity": true,
+      "supports_graphical_view": true,
+      "supports_sql_view": true,
+      "csn_version": "2.1"
+    },
+    "default": {
+      "scaffold": "v1_scaffold",
+      "supports_analytic_model": true,
+      "supports_business_entity": true,
+      "supports_graphical_view": true,
+      "supports_sql_view": true,
+      "csn_version": "2.0"
+    }
+  }
+}
