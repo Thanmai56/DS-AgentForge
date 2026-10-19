@@ -96,6 +96,18 @@ const SAMPLE_MM_METADATA = `[
   }
 ]`;
 
+const SAMPLE_PO_ROWS = `Table: ZIPOHDRAPT
+PURCHASEORDER\tCREATIONDATE\tCOMPANYCODE\tPURCHASINGORGANIZATION\tPURCHASINGGROUP\tSUPPLIER
+4500001001\t20260301\t1010\t1000\t001\t100001
+4500001002\t20260302\t1010\t1000\t001\t100002
+4500001003\t20260303\t1010\t1000\t001\t100003
+
+Table: ZIPOHISTEXT
+PURCHASEORDER\tPURCHASEORDERITEM\tPOSTINGDATE\tGOODSMOVEMENTTYPE\tGOODSRECEIPTQUANTITY
+4500001001\t10\t20260305\t101\t100.000
+4500001002\t10\t20260308\t101\t50.000
+4500001003\t10\t20260312\t101\t200.000`;
+
 export interface UploadedFileItem {
   id: string;
   name: string;
@@ -126,6 +138,12 @@ export const ChatRequirementPage: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [expandedSourceIndex, setExpandedSourceIndex] = useState<number | null>(null);
+
+  // Sample data and row limit state for Requirement AI
+  const [sampleDataText, setSampleDataText] = useState('');
+  const [rowLimit, setRowLimit] = useState<number>(5);
+  const [perTableSamples, setPerTableSamples] = useState<Record<string, string>>({});
+  const [selectedSampleTable, setSelectedSampleTable] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -189,8 +207,11 @@ export const ChatRequirementPage: React.FC = () => {
   useEffect(() => {
     if (allExtractedSources.length > 0) {
       setExtractedEntities(allExtractedSources);
+      if (!selectedSampleTable || (selectedSampleTable !== '_all_' && !allExtractedSources.some((s) => s.name === selectedSampleTable))) {
+        setSelectedSampleTable(allExtractedSources[0].name);
+      }
     }
-  }, [allExtractedSources, setExtractedEntities]);
+  }, [allExtractedSources, selectedSampleTable, setExtractedEntities]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -228,12 +249,14 @@ export const ChatRequirementPage: React.FC = () => {
       setBusinessRequirement(prompt.trim());
 
       let payloadMetadata: any = null;
+      let primaryFilename = 'metadata.json';
       if (sourceMode === 'upload') {
         if (uploadedFiles.length === 0) {
           alert('Please upload at least one JSON source file or switch to "Paste Metadata" mode.');
           setLoading(false);
           return;
         }
+        primaryFilename = uploadedFiles.map((f) => f.name).join(', ');
         // Build merged CSN definitions from uploaded files
         const mergedDefs: Record<string, any> = {};
         uploadedFiles.forEach((f) => {
@@ -259,20 +282,44 @@ export const ChatRequirementPage: React.FC = () => {
         payloadMetadata = parsed;
       }
 
-      // Start run via API
-      try {
-        const newRun = await api.startRun(
-          prompt,
-          payloadMetadata,
-          activeConnection?.id || null
-        );
-        setActiveRun(newRun);
-      } catch (apiErr) {
-        console.warn('API run call finished, proceeding to Lineage view:', apiErr);
+      // Prepare sample data payload:
+      // If perTableSamples has entries, construct a clean multi-table tagged string
+      let sampleDataPayload: string | undefined = undefined;
+      const tablesWithSamples = Object.entries(perTableSamples).filter(
+        ([_, val]) => val && val.trim()
+      );
+
+      if (tablesWithSamples.length > 0) {
+        sampleDataPayload = tablesWithSamples
+          .map(([tbl, val]) => `Table: ${tbl}\n${val.trim()}`)
+          .join('\n\n');
+      } else if (sampleDataText.trim()) {
+        sampleDataPayload = sampleDataText.trim();
       }
 
-      // Navigate straight to the Data Lineage page!
-      navigate('/lineage');
+      // Generate visual plan via Phase 1 backend API
+      try {
+        const { generatePlanApi } = await import('../features/plan/planApi');
+        const res = await generatePlanApi(prompt, payloadMetadata, {
+          sampleData: sampleDataPayload,
+          rowLimit: rowLimit,
+          filename: primaryFilename,
+        });
+        sessionStorage.setItem('activePlanId', res.plan_id);
+        sessionStorage.setItem('activePlanRequestId', res.request_id || '');
+        sessionStorage.setItem('activePlan', JSON.stringify(res.plan));
+        if (res.sample_data_summary) {
+          sessionStorage.setItem('activeSampleDataSummary', JSON.stringify(res.sample_data_summary));
+        }
+        if (res.warnings && res.warnings.length > 0) {
+          sessionStorage.setItem('activePlanWarnings', JSON.stringify(res.warnings));
+        }
+      } catch (apiErr) {
+        console.warn('Backend plan API call finished with note, proceeding to Plan page:', apiErr);
+      }
+
+      // Navigate straight to the Visual Plan page!
+      navigate('/plan');
     } catch (err: any) {
       alert(`Could not start run: ${err.message}`);
     } finally {
@@ -560,6 +607,196 @@ export const ChatRequirementPage: React.FC = () => {
           )}
         </div>
 
+        {/* Section 3: Sample Data Rows (Mapped by Discovered Tables) */}
+        <div className="p-5 space-y-4 bg-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <label className="text-xs font-semibold text-[#1D2D3E] uppercase tracking-wider flex items-center space-x-2">
+                <Table className="w-4 h-4 text-[#0070F2]" />
+                <span>3. Sample Data Rows (Optional & Mapped to Schemas)</span>
+              </label>
+              <p className="text-[11px] text-[#556B82] mt-0.5">
+                Paste copied spreadsheet rows, TSV, CSV, or pipe-delimited samples mapped directly to each discovered table.
+              </p>
+            </div>
+
+            {/* Row limit selector and helper buttons */}
+            <div className="flex items-center space-x-3 shrink-0">
+              <div className="flex items-center space-x-1.5 text-xs text-[#556B82]">
+                <span>Row Limit:</span>
+                <select
+                  value={rowLimit}
+                  onChange={(e) => setRowLimit(Number(e.target.value))}
+                  className="bg-[#FAFBFD] border border-[#D9DDE3] rounded px-2 py-1 text-xs text-[#1D2D3E] focus:outline-none focus:border-[#0070F2]"
+                >
+                  <option value={3}>3 rows</option>
+                  <option value={5}>5 rows (default)</option>
+                  <option value={10}>10 rows</option>
+                  <option value={20}>20 rows</option>
+                </select>
+              </div>
+
+              {Object.keys(perTableSamples).some((k) => perTableSamples[k]?.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => setPerTableSamples({})}
+                  className="px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  Clear All Tables
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table Tab Navigation if tables are discovered */}
+          {allExtractedSources.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-2">
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide mr-1 flex items-center space-x-1">
+                  <span>Detected Tables ({allExtractedSources.length}):</span>
+                </span>
+                {allExtractedSources.map((src) => {
+                  const hasData = Boolean(perTableSamples[src.name]?.trim());
+                  const isSelected = selectedSampleTable === src.name;
+                  return (
+                    <button
+                      key={src.name}
+                      type="button"
+                      onClick={() => setSelectedSampleTable(src.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#0070F2] text-white shadow-2xs'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                    >
+                      <span className="font-mono">{src.name}</span>
+                      <span
+                        className={`text-[10px] px-1 rounded ${
+                          isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {src.fields.length} cols
+                      </span>
+                      {hasData && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" title="Has sample data" />
+                      )}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSampleTable('_all_')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    selectedSampleTable === '_all_'
+                      ? 'bg-[#0070F2] text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  All-In-One Box
+                </button>
+              </div>
+
+              {/* Specific Table Editor */}
+              {selectedSampleTable && selectedSampleTable !== '_all_' && (
+                <div className="space-y-2">
+                  {(() => {
+                    const activeSrc = allExtractedSources.find((s) => s.name === selectedSampleTable);
+                    const currentText = perTableSamples[selectedSampleTable] || '';
+                    const lineCount = currentText.trim() ? currentText.trim().split('\n').length : 0;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                          <div className="text-[11px] text-slate-700">
+                            Table: <span className="font-bold font-mono text-[#0070F2]">{selectedSampleTable}</span>
+                            {activeSrc && (
+                              <span className="text-slate-500 ml-2">
+                                ({activeSrc.fields.length} columns:{' '}
+                                {activeSrc.fields.slice(0, 6).map((f) => f.name).join(', ')}
+                                {activeSrc.fields.length > 6 ? '...' : ''})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {lineCount > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                                {lineCount} row(s) entered
+                              </span>
+                            )}
+                            {currentText && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPerTableSamples((prev) => ({
+                                    ...prev,
+                                    [selectedSampleTable]: '',
+                                  }))
+                                }
+                                className="text-[11px] text-slate-500 hover:text-red-600 transition-colors cursor-pointer"
+                              >
+                                Clear this table
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <textarea
+                          rows={5}
+                          value={currentText}
+                          onChange={(e) =>
+                            setPerTableSamples((prev) => ({
+                              ...prev,
+                              [selectedSampleTable]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Paste copied spreadsheet or CSV rows for ${selectedSampleTable} directly here (headers can be technical names, labels, or Column 1...):\n\nCol 1\tCol 2\tCol 3...\nval1\tval2\tval3...`}
+                          className="w-full bg-[#FAFBFD] border border-[#D9DDE3] rounded-lg p-3 text-[#1D2D3E] placeholder-[#8A9BA8] font-mono focus:outline-none focus:border-[#0070F2] focus:bg-white text-xs resize-y transition-colors leading-relaxed"
+                        />
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* All-In-One Fallback Box */}
+              {selectedSampleTable === '_all_' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-200 text-slate-600">
+                    <span>
+                      Paste all tables together with optional prefixes like{' '}
+                      <code className="font-mono text-[#0070F2]">Table: EKET</code> or{' '}
+                      <code className="font-mono text-[#0070F2]">[EKET]</code>:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSampleDataText(SAMPLE_PO_ROWS)}
+                      className="px-2 py-0.5 text-[11px] font-medium text-[#0070F2] bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 cursor-pointer"
+                    >
+                      Insert Example
+                    </button>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={sampleDataText}
+                    onChange={(e) => setSampleDataText(e.target.value)}
+                    placeholder={`Optional: Paste table rows directly from Excel, CSV, or TSV, e.g.:\nTable: ZIPOHDRAPT\nPURCHASEORDER\tCREATIONDATE\tCOMPANYCODE\tSUPPLIER\n4500001001\t20260301\t1010\t100001\n\nIf left blank, the planner operates using metadata alone.`}
+                    className="w-full bg-[#FAFBFD] border border-[#D9DDE3] rounded-lg p-3 text-[#1D2D3E] placeholder-[#8A9BA8] font-mono focus:outline-none focus:border-[#0070F2] focus:bg-white text-xs resize-y transition-colors leading-relaxed"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {allExtractedSources.length === 0 && (
+            <textarea
+              rows={5}
+              value={sampleDataText}
+              onChange={(e) => setSampleDataText(e.target.value)}
+              placeholder="Paste sample data rows here. When metadata schemas are uploaded, you can map rows to each table individually."
+              className="w-full bg-[#FAFBFD] border border-[#D9DDE3] rounded-lg p-3 text-[#1D2D3E] placeholder-[#8A9BA8] font-mono focus:outline-none focus:border-[#0070F2] focus:bg-white text-xs resize-y transition-colors leading-relaxed"
+            />
+          )}
+        </div>
+
         {/* Action Button */}
         <div className="p-4 bg-white flex items-center justify-between">
           <div className="text-xs text-[#64748B]">
@@ -574,12 +811,12 @@ export const ChatRequirementPage: React.FC = () => {
             {loading ? (
               <>
                 <Clock className="w-4 h-4 animate-spin" />
-                <span>Generating Lineage...</span>
+                <span>Generating Verified Plan...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                <span>Synthesize Datasphere Model Canvas</span>
+                <span>Generate Modeling Plan</span>
               </>
             )}
           </button>

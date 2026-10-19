@@ -91,26 +91,15 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 API docs will be available at: `http://localhost:8000/docs`
-The database-free backend currently mounts only `/`, `/health`, and the WebSocket
-transport. Stateful REST features such as runs, chat, connections, catalog, canvas,
-views, and backend export are unavailable; the browser-based schema lineage and
-CSN download workflow does not require those endpoints.
-When source metadata has no explicit completion flag, the PO processing-time
-generator falls back to rows with a final-delivery date and displays a warning.
+The backend provides:
+- `/health`: Health status
+- `/api/plan`: Phase 1 modeling plan generation and visual revision
+- `/ws`: Real-time WebSocket transport
 
-### Importing generated CSN into Datasphere
-
-- Import source objects before views that reference them. A generated view does not
-  create its upstream SAP/source table; that object must already exist in the target
-  Datasphere space and its technical name and columns must match the view query.
-- Use the generated package's import order and re-download JSON after changing
-  uploaded metadata or the requirement. Previously downloaded files are unchanged.
-- Native SQL types are mapped to CSN types with separate length/precision/scale
-  properties. When uploaded metadata omits a string length or decimal precision,
-  the exporter supplies defaults; verify these defaults against the actual source
-  schema when exact type fidelity is required.
-- Placeholder columns named `TEST` are omitted from uploaded schemas. Other source
-  columns are retained, so confirm that each referenced field exists in Datasphere.
+Run the Phase 1 test suite (offline, no database needed):
+```cmd
+pytest tests/test_plan_step1.py tests/test_profiler_step2.py tests/test_planner_step3.py tests/test_api_step4.py -v
+```
 
 ### 2. Frontend Setup
 
@@ -120,7 +109,8 @@ npm install
 npm run dev
 ```
 
-Application will be running at: `http://localhost:5173`
+Application will be running at: `http://localhost:3000`
+- Navigate to `http://localhost:3000/plan` to interact with the Visual Modeling Plan.
 
 ---
 

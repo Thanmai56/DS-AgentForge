@@ -4,24 +4,41 @@ All settings read from environment variables / .env file.
 Credentials are NEVER stored in the database.
 """
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env", "backend/.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
     # Application
-    app_env: Literal["development", "production"] = "development"
+    app_env: str = "development"
     app_title: str = "DS ModelForge"
     app_version: str = "1.0.0"
     secret_key: str = "changeme-use-openssl-rand-hex-32"
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins: list[str] | str = ["http://localhost:3000", "http://localhost:3001"]
+
+    @field_validator("allowed_origins")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, (list, tuple)):
+            return list(v)
+        return ["*"]
 
     # Database
     database_url: str = "postgresql+asyncpg://modelforge:modelforge@localhost:5432/modelforge"
@@ -34,8 +51,8 @@ class Settings(BaseSettings):
     argon2_memory_cost: int = 65536
 
     # LLM
-    llm_provider: Literal["openai", "azure", "anthropic", "gemini", "google"] = "openai"
-    llm_model: str = "gpt-4o"
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-2.5-flash"
     llm_temperature: float = 0.0
 
     openai_api_key: str | None = None

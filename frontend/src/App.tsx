@@ -11,6 +11,7 @@ import { RunsPage } from './pages/RunsPage';
 import { ExportPage } from './pages/ExportPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
 import { useStore } from './store/useStore';
+import { PlanPage } from './features/plan/PlanPage';
 
 export const App: React.FC = () => {
   const { pendingGate } = useStore();
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Navigate to="/chat" replace />} />
               <Route path="/chat" element={<ChatRequirementPage />} />
+              <Route path="/plan" element={<PlanPage />} />
               <Route path="/canvas" element={<DatasphereCanvas />} />
               <Route path="/catalog" element={<CatalogPage />} />
               <Route path="/lineage" element={<LineagePage />} />

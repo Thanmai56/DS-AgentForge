@@ -1,4 +1,12 @@
 """Database-free FastAPI entry point."""
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Automatically load .env from backend/ or project root
+_root = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_root / "backend" / ".env")
+load_dotenv(_root / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,9 +31,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# The stateful API routers require the database-backed models and are not
-# mounted in this database-free deployment.
+from app.api.v1.plan_routes import router as plan_router
+from app.api.v1.lineage_routes import router as lineage_router
+
+# Mount routers
 app.include_router(ws_router)
+app.include_router(plan_router, prefix="/api")
+app.include_router(lineage_router, prefix="/api")
+
 
 
 

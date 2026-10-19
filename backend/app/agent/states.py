@@ -98,4 +98,4 @@ class RunState(TypedDict):
 
     # Feedback / edits (EDIT_LOOP)
     pending_edits: list[dict]
-    Annotated[list[str], operator.add]  # accumulated messages for debugging
+    messages: Annotated[list[str], operator.add]  # accumulated messages for debugging

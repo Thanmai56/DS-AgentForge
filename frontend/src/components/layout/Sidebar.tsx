@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   MessageSquareCode,
+  Layers,
   FolderGit2,
   LayoutDashboard,
   Database,
@@ -17,6 +18,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentGate }) => {
   const navItems = [
     { to: '/chat', label: 'Requirement AI', icon: MessageSquareCode, badge: currentGate ? 'Pending' : undefined },
+    { to: '/plan', label: 'Modeling Plan', icon: Layers },
     { to: '/lineage', label: 'Data Lineage', icon: FolderGit2 },
     { to: '/canvas', label: 'Model Canvas', icon: LayoutDashboard },
     { to: '/catalog', label: 'Space Catalog', icon: Database },

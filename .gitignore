@@ -8,6 +8,7 @@ backend/.venv312/
 
 # Python virtual environments
 venv/
+backend/venv/
 .venv/
 env/
 .env/

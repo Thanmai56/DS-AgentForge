@@ -1,0 +1,1110 @@
+{
+  "definitions": {
+    "EKET": {
+      "kind": "entity",
+      "@DataWarehouse.remote.connection": "S3X_Training_2026_1",
+      "@DataWarehouse.remote.entity": "ABAPTABLES.EKET",
+      "elements": {
+        "MANDT": {
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Client",
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "EBELN": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchasing Document Number",
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "EBELP": {
+          "type": "cds.String",
+          "length": 5,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Item Number of Purchasing Document",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "ETENR": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Delivery Schedule Line Counter",
+          "@DataWarehouse.native.dataType": "VARCHAR",
+          "notNull": true,
+          "key": true
+        },
+        "UNIQUEID": {
+          "type": "cds.String",
+          "length": 19,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Schedule line id(Concatenation of EBELN, EBELP, EETEN)",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "EINDT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Item Delivery Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "SLFDT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Statistics-Relevant Delivery Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "LPEIN": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Category of delivery date",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "MENGE": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Scheduled Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "AMENG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Previous Quantity (Delivery Schedule Lines)",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "WEMNG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Quantity of Goods Received",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "WAMNG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Issued Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "UZEIT": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Delivery Date Time-Spot",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "BANFN": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchase Requisition Number",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "BNFPO": {
+          "type": "cds.String",
+          "length": 5,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Item Number of Purchase Requisition",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ESTKZ": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Creation indicator (purchase requisition/schedule lines)",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "QUNUM": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Number of quota arrangement",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "QUPOS": {
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Quota arrangement item",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "MAHNZ": {
+          "type": "cds.Decimal",
+          "precision": 3,
+          "scale": 0,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "No. of Reminders/Expediters for Schedule Line",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "BEDAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Order date of schedule line",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "RSNUM": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Number of reservation/dependent requirements",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "SERNR": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "BOM explosion number",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "FIXKZ": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Schedule Line is \"Fixed\"",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "GLMNG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Quantity Delivered (Stock Transfer)",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "DABMG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Quantity Reduced (MRP)",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "CHARG": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Batch Number",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "LICHA": {
+          "type": "cds.String",
+          "length": 15,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Supplier Batch Number",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "CHKOM": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Components",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "VERID": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Production Version",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "ABART": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Scheduling agreement release type",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "MNG02": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Committed Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "DAT01": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Committed date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ALTDT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Previous delivery date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "AULWE": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Route Schedule",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "MBDAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Material Staging/Availability Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "MBUHR": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Material Staging Time (Local, Relating to a Plant)",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "LDDAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Loading Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "LDUHR": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Loading Time (Local Time Relating to a Shipping Point)",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "TDDAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Transportation Planning Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "TDUHR": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Transp. Planning Time (Local, Relating to a Shipping Point)",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "WADAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Goods Issue Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "WAUHR": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Time of Goods Issue (Local, Relating to a Plant)",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ELDAT": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Goods Receipt End Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ELUHR": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Goods Receipt End Time (Local, Relating to a Plant)",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ANZSN": {
+          "type": "cds.Integer",
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Number of serial numbers",
+          "@DataWarehouse.native.dataType": "INTEGER"
+        },
+        "NODISP": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Ind: Reserv. not applicable to MRP;Purc. req. not created",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "GEO_ROUTE": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Description of a Geographical Route",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "ROUTE_GTS": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Route Code for SAP Global Trade Services",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "GTS_IND": {
+          "type": "cds.String",
+          "length": 2,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Goods Traffic Type",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "TSP": {
+          "type": "cds.String",
+          "length": 10,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Forwarding Agent",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "CD_LOCNO": {
+          "type": "cds.String",
+          "length": 20,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Location number in APO",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "CD_LOCTYPE": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "APO location type",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "HANDOVERDATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Handover Date at the Handover Location",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "HANDOVERTIME": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Handover time at the handover location",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "WESBB": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Valuated Goods Receipt Blocked Stock in Order Unit",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "FCFS_PRIORITY": {
+          "type": "cds.String",
+          "length": 14,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "First Come First Served Priority",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "STARTDATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Start Date for Period of Performance",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "ENDDATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "End Date for Period of Performance",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "_DATAAGING": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Data Filter Value for Data Aging",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "/CWM/MENGE": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Schedule Line Quantity in Base/Parallel Unit of Measure",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "/CWM/DABMG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "MRP Reduced Quantity in Base/Parallel UoM",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "/CWM/WEMNG": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Goods Receipt Quantity in Base or Parallel Unit of Measure",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "TMS_REF_UUID": {
+          "type": "cds.String",
+          "length": 22,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Reference UUID of Transportation Management",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "ARUN_REQ_DLVDATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "FSH_RALLOC_QTY": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "ARun Requirement Allocated Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "FSH_SALLOC_QTY": {
+          "type": "cds.Decimal",
+          "precision": 13,
+          "scale": 3,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Allocated Stock Quantity",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "FSH_OS_ID": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Order Scheduling Group ID",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "KEY_ID": {
+          "type": "cds.String",
+          "length": 16,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Unique Number of Budget",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "OTB_VALUE": {
+          "type": "cds.Decimal",
+          "precision": 17,
+          "scale": 2,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Required Budget",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "OTB_CURR": {
+          "type": "cds.String",
+          "length": 5,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "OTB Currency",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "OTB_RES_VALUE": {
+          "type": "cds.Decimal",
+          "precision": 17,
+          "scale": 2,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Reserved Budget for OTB-Relevant Purchasing Document",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "OTB_SPEC_VALUE": {
+          "type": "cds.Decimal",
+          "precision": 17,
+          "scale": 2,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Special Release Budget",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        },
+        "SPR_RSN_PROFILE": {
+          "type": "cds.String",
+          "length": 4,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Reason Profile for OTB Special Release",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "BUDG_TYPE": {
+          "type": "cds.String",
+          "length": 2,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Budget Type",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "OTB_STATUS": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "OTB Check Status",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "OTB_REASON": {
+          "type": "cds.String",
+          "length": 3,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Reason Indicator for OTB Check Status",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "CHECK_TYPE": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Type of OTB Check",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "DL_ID": {
+          "type": "cds.String",
+          "length": 22,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Date Line ID (GUID)",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "HANDOVER_DATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Transfer Date",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "NO_SCEM": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Purchase Order Not Transferred to SCEM",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "DNG_DATE": {
+          "type": "cds.String",
+          "length": 8,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Creation Date of Reminder Message Record",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "DNG_TIME": {
+          "type": "cds.String",
+          "length": 6,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Creation Time of Reminder Message Record",
+          "@DataWarehouse.native.dataType": "VARCHAR"
+        },
+        "CNCL_ANCMNT_DONE": {
+          "type": "cds.String",
+          "length": 1,
+          "@DataWarehouse.capabilities.filter.allowedExpressions": [
+            {
+              "#": "EQUAL"
+            },
+            {
+              "#": "BETWEEN"
+            }
+          ],
+          "@EndUserText.label": "Cancellation Threat Made",
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        },
+        "DATESHIFT_NUMBER": {
+          "type": "cds.Decimal",
+          "precision": 3,
+          "scale": 0,
+          "@DataWarehouse.capabilities.filter.enabled": false,
+          "@EndUserText.label": "Number of Current Date Shifts",
+          "@DataWarehouse.native.dataType": "DECIMAL"
+        }
+      },
+      "@ObjectModel.modelingPattern": {
+        "#": "DATA_STRUCTURE"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "DATA_STRUCTURE"
+        },
+        {
+          "#": "SQL_DATA_SOURCE"
+        }
+      ],
+      "@EndUserText.label": "Scheduling Agreement Schedule Lines",
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": "Folder_GOTHFRZR"
+        }
+      }
+    }
+  },
+  "version": {
+    "csn": "1.0"
+  },
+  "meta": {
+    "creator": "CDS Compiler v1.19.2"
+  },
+  "$version": "1.0"
+}
