@@ -23,12 +23,15 @@ export interface CompressedEntity {
     rightSource: string;
     leftField: string;
     rightField: string;
+    joinType?: string;
   }>;
   calculatedFields?: Array<{
     name: string;
     label: string;
     formula?: string;
   }>;
+  filters?: string[];
+  groupBy?: string[];
 }
 
 const isTestPlaceholder = (name: string) => name.trim().toUpperCase() === 'TEST';

@@ -35,6 +35,8 @@ import { useStore } from '../../store/useStore';
 import { PO_PROCESSING_TIME_GRAPH } from '../../../fixtures/po-processing-time';
 import { CompressedField, CompressedEntity } from '../../utils/schemaCompressor';
 import { buildDynamicLineage } from '../../utils/dynamicLineageBuilder';
+import { Plan } from '../../features/plan/types';
+import { buildPlanExportEntities } from '../../features/plan/planExport';
 import { ViewInternalLineageModal } from './ViewInternalLineageModal';
 
 // ── Node Data Type ──────────────────────────────────────────────────────────
@@ -135,6 +137,31 @@ const nodeTypes = {
 export const DatasphereLineageView: React.FC = () => {
   const navigate = useNavigate();
   const { extractedEntities, businessRequirement } = useStore();
+  const [activePlan] = useState<Plan | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('activePlan');
+      return raw ? JSON.parse(raw) as Plan : null;
+    } catch {
+      return null;
+    }
+  });
+  const [storedSourceEntities] = useState<CompressedEntity[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('activeSourceEntities');
+      return raw ? JSON.parse(raw) as CompressedEntity[] : [];
+    } catch {
+      return [];
+    }
+  });
+  const sourceEntities = extractedEntities.length
+    ? extractedEntities as CompressedEntity[]
+    : storedSourceEntities;
+  const lineageEntities = useMemo(
+    () => activePlan
+      ? buildPlanExportEntities(activePlan, sourceEntities)
+      : sourceEntities,
+    [activePlan, sourceEntities],
+  );
   const [selectedEntity, setSelectedEntity] = useState<LineageNodeData | null>(null);
   const [activeTab, setActiveTab] = useState<'columns' | 'viewLineage'>('columns');
   const [searchColumn, setSearchColumn] = useState('');
@@ -149,11 +176,19 @@ export const DatasphereLineageView: React.FC = () => {
 
   // Compute graph nodes & edges dynamically from ANY extracted entities
   const { nodes, edges, warnings } = useMemo(() => {
-    let sourceEntities: CompressedEntity[] = extractedEntities;
+    let entities: CompressedEntity[] = lineageEntities;
 
     // If nothing has been uploaded or extracted yet, default gracefully to the PO Processing Time scenario
-    if (!sourceEntities || sourceEntities.length === 0) {
-      sourceEntities = [
+    if ((!entities || entities.length === 0) && activePlan) {
+      return {
+        nodes: [],
+        edges: [],
+        warnings: ['The accepted plan did not produce any lineage entities.'],
+      };
+    }
+
+    if (!entities || entities.length === 0) {
+      entities = [
         {
           name: 'ZIPOHDRAPT',
           business_name: 'Purchase Order Header Extract for APT - Master Data Attributes',
@@ -237,7 +272,9 @@ export const DatasphereLineageView: React.FC = () => {
       nodes: dynamicNodes,
       edges: dynamicEdges,
       warnings: generationWarnings,
-    } = buildDynamicLineage(sourceEntities, businessRequirement);
+    } = buildDynamicLineage(entities, businessRequirement, {
+      preserveInputGraph: Boolean(activePlan),
+    });
 
     const flowNodes: Node[] = dynamicNodes.map((n) => ({
       id: n.technicalName,
@@ -271,7 +308,7 @@ export const DatasphereLineageView: React.FC = () => {
     }));
 
     return { nodes: flowNodes, edges: flowEdges, warnings: generationWarnings };
-  }, [businessRequirement, extractedEntities, handleSelectNode]);
+  }, [activePlan, businessRequirement, lineageEntities, handleSelectNode]);
 
   const filteredColumns = useMemo(() => {
     if (!selectedEntity) return [];
@@ -304,13 +341,13 @@ export const DatasphereLineageView: React.FC = () => {
           </div>
         )}
 
-        {/* Top Right: Proceed Button */}
+        {/* Top Right: Generate JSON action */}
         <div className="absolute top-4 right-6 z-10">
           <button
             onClick={() => navigate('/export')}
             className="px-5 py-2.5 rounded-lg bg-[#0070F2] hover:bg-[#0058C6] text-white text-xs font-semibold shadow-sm flex items-center space-x-2 transition-all cursor-pointer"
           >
-            <span>Proceed to Download JSONs</span>
+            <span>Generate JSON</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -532,7 +569,7 @@ export const DatasphereLineageView: React.FC = () => {
               onClick={() => navigate('/export')}
               className="w-full py-2.5 rounded-lg bg-[#0070F2] hover:bg-[#0058C6] text-white font-semibold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-xs"
             >
-              <span>Proceed to Download JSONs</span>
+              <span>Generate JSON</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

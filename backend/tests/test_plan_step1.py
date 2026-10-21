@@ -253,6 +253,122 @@ def test_plan_checker_rejects_invalid_join_keys():
     assert any("NON_EXISTENT_KEY" in err for err in result.errors)
 
 
+def test_plan_checker_validates_qualified_keys_in_multi_input_join():
+    """Qualified join keys must be checked against their named input, not just inputs 1 and 2."""
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "EKKO": {"kind": "entity", "elements": {
+                "EBELN": {"type": "cds.String"},
+                "BUKRS": {"type": "cds.String"},
+            }},
+            "EKPO": {"kind": "entity", "elements": {
+                "EBELN": {"type": "cds.String"},
+                "EBELP": {"type": "cds.String"},
+                "MATNR": {"type": "cds.String"},
+            }},
+            "EKET": {"kind": "entity", "elements": {
+                "EBELN": {"type": "cds.String"},
+                "EBELP": {"type": "cds.String"},
+                "EINDT": {"type": "cds.String"},
+            }},
+            "EKBE": {"kind": "entity", "elements": {
+                "EBELN": {"type": "cds.String"},
+                "EBELP": {"type": "cds.String"},
+                "MENGE": {"type": "cds.Decimal"},
+            }},
+        }
+    })
+    projections = [
+        PlanNode(
+            id=f"L1_{table}",
+            operation="projection",
+            inputs=[table],
+            columns=columns,
+            reason=f"Project {table} fields.",
+            layer="L1",
+        )
+        for table, columns in (
+            ("EKKO", ["EBELN", "BUKRS"]),
+            ("EKPO", ["EBELN", "EBELP", "MATNR"]),
+            ("EKET", ["EBELN", "EBELP", "EINDT"]),
+            ("EKBE", ["EBELN", "EBELP", "MENGE"]),
+        )
+    ]
+    fact = PlanNode(
+        id="L3_FACT_SUPPLIER_OTIF",
+        operation="join",
+        inputs=["L1_EKKO", "L1_EKPO", "L1_EKET", "L1_EKBE"],
+        columns=["EBELN", "EBELP", "BUKRS", "MATNR", "EINDT", "MENGE"],
+        details=NodeDetails(
+            join_type="left",
+            on=[
+                ["L1_EKKO.EBELN", "L1_EKPO.EBELN"],
+                ["L1_EKPO.EBELP", "L1_EKET.EBELP"],
+                ["L1_EKPO.EBELP", "L1_EKBE.EBELP"],
+            ],
+        ),
+        reason="Join PO header, items, schedule lines and history.",
+        layer="L3",
+    )
+
+    result = check_plan(Plan(nodes=[*projections, fact]), metadata)
+    assert result.is_valid is True, result.errors
+
+
+@pytest.mark.parametrize(
+    ("left_key", "expected_error"),
+    [
+        ("T1.MISSING_KEY", "MISSING_KEY"),
+        ("UNKNOWN.ORDER_ID", "not one of the join inputs"),
+    ],
+)
+def test_plan_checker_rejects_invalid_qualified_join_references(left_key, expected_error):
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "T1": {"kind": "entity", "elements": {"ORDER_ID": {"type": "cds.String"}}},
+            "T2": {"kind": "entity", "elements": {"CUSTOMER_ID": {"type": "cds.String"}}},
+        }
+    })
+    plan = Plan(nodes=[
+        PlanNode(
+            id="JOIN_VIEW",
+            operation="join",
+            inputs=["T1", "T2"],
+            details=NodeDetails(
+                join_type="inner",
+                on=[[left_key, "T2.CUSTOMER_ID"]],
+            ),
+        )
+    ])
+
+    result = check_plan(plan, metadata)
+    assert result.is_valid is False
+    assert any(expected_error in error for error in result.errors)
+
+
+def test_plan_checker_still_rejects_case_mismatched_columns():
+    """Join resolution must not weaken the exact metadata column-name check."""
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "EKBE": {"kind": "entity", "elements": {"MENGE": {"type": "cds.Decimal"}}},
+        }
+    })
+    plan = Plan(nodes=[
+        PlanNode(
+            id="L1_EKBE",
+            operation="projection",
+            inputs=["EKBE"],
+            columns=["MENge"],
+            reason="Project quantity.",
+            layer="L1",
+        )
+    ])
+
+    result = check_plan(plan, metadata)
+    assert result.is_valid is False
+    assert any("MENge" in error and "MENGE" in error for error in result.errors)
+
+
 def test_dynamic_parsing_eket_fixture():
     """Verify that CDS extractor dynamically discovers arbitrary table names (EKET), composite keys, and namespaced columns."""
     eket_fixture_path = Path(__file__).parent / "fixtures" / "EKET.json"
@@ -288,4 +404,3 @@ def test_dynamic_parsing_eket_fixture():
     assert menge_col.is_measure is True
     assert "DECIMAL(13,3)" in menge_col.data_type
     assert menge_col.label == "Scheduled Quantity"
-

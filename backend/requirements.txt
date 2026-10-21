@@ -3,8 +3,9 @@
 # ── Web Framework ─────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
-websockets==12.0
+websockets>=13.0
 python-multipart==0.0.9
+
 
 
 # ── Auth ──────────────────────────────────────────────────
@@ -48,7 +49,7 @@ jsonschema==4.22.0
 
 # ── Utilities ─────────────────────────────────────────────
 python-dotenv==1.0.1
-httpx==0.27.0
+httpx>=0.28.1
 tenacity==8.3.0
 structlog==24.2.0
 rich==13.7.1

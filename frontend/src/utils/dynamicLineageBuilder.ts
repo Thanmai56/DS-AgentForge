@@ -39,6 +39,7 @@ export interface DynamicLineageResult {
 export function buildDynamicLineage(
   entities: CompressedEntity[],
   requirement = '',
+  options: { preserveInputGraph?: boolean } = {},
 ): DynamicLineageResult {
   if (!entities || entities.length === 0) {
     return { nodes: [], edges: [], warnings: [] };
@@ -59,30 +60,8 @@ export function buildDynamicLineage(
   let fullEntities: DynamicLineageNode[] = [];
   const warnings: string[] = [];
 
-  if (isProcessingTimeRequest) {
-    const processingTimeChain = buildProcessingTimeChain(sourceEntities, requirement);
-    if (processingTimeChain) {
-      fullEntities = processingTimeChain.nodes;
-      warnings.push(...processingTimeChain.warnings);
-    } else {
-      fullEntities = sourceEntities.map((entity) => ({
-        technicalName: entity.name,
-        businessName: entity.business_name || entity.name,
-        kind: entity.kind,
-        fieldCount: entity.fields.length,
-        fields: entity.fields,
-        sources: entity.sources || [],
-        joins: entity.joins || [],
-        calculatedFields: entity.calculatedFields || [],
-        x: 0,
-        y: 0,
-      }));
-      warnings.push(
-        'Could not build the processing-time model: source metadata must include a PO number, creation date, and delivery date.',
-      );
-    }
-  } else if (hasViews) {
-    // Input already has views defined
+  if (options.preserveInputGraph || (hasViews && !isProcessingTimeRequest)) {
+    // Use the supplied nodes and dependencies as-is instead of inferring a new model.
     fullEntities = sourceEntities.map((e) => ({
       technicalName: e.name,
       businessName: e.business_name || e.name,
@@ -112,6 +91,28 @@ export function buildDynamicLineage(
         y: 0,
       });
       warnings.push(`Source "${source}" is referenced by an uploaded view but its schema was not uploaded.`);
+    }
+  } else if (isProcessingTimeRequest) {
+    const processingTimeChain = buildProcessingTimeChain(sourceEntities, requirement);
+    if (processingTimeChain) {
+      fullEntities = processingTimeChain.nodes;
+      warnings.push(...processingTimeChain.warnings);
+    } else {
+      fullEntities = sourceEntities.map((entity) => ({
+        technicalName: entity.name,
+        businessName: entity.business_name || entity.name,
+        kind: entity.kind,
+        fieldCount: entity.fields.length,
+        fields: entity.fields,
+        sources: entity.sources || [],
+        joins: entity.joins || [],
+        calculatedFields: entity.calculatedFields || [],
+        x: 0,
+        y: 0,
+      }));
+      warnings.push(
+        'Could not build the processing-time model: source metadata must include a PO number, creation date, and delivery date.',
+      );
     }
   } else {
     {

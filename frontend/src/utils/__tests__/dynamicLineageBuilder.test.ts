@@ -160,6 +160,53 @@ describe('schemaCompressor - Zero Hardcoding Tests', () => {
 });
 
 describe('dynamicLineageBuilder - Zero Hardcoding Tests', () => {
+  it('preserves the accepted plan graph instead of inferring a different model', () => {
+    const planEntities = [
+      {
+        name: 'EKKO',
+        business_name: 'PO Header',
+        kind: 'table' as const,
+        fields: [
+          { name: 'PURCHASEORDER', data_type: 'NVARCHAR', is_key: true, label: 'PO', semantic_role: 'key' as const },
+          { name: 'CREATIONDATE', data_type: 'DATE', is_key: false, label: 'Creation Date', semantic_role: 'date' as const },
+        ],
+        sources: [],
+      },
+      {
+        name: 'L3_FINALIZED_FACT',
+        business_name: 'Finalized Fact',
+        kind: 'fact' as const,
+        fields: [],
+        sources: ['EKKO', 'L1_HISTORY'],
+      },
+      {
+        name: 'L4_FINALIZED_MODEL',
+        business_name: 'Finalized Model',
+        kind: 'analytic_model' as const,
+        fields: [],
+        sources: ['L3_FINALIZED_FACT'],
+      },
+    ];
+
+    const lineage = buildDynamicLineage(planEntities, 'Purchase order processing time', {
+      preserveInputGraph: true,
+    });
+
+    expect(lineage.nodes.map((node) => node.technicalName)).toEqual([
+      'EKKO',
+      'L3_FINALIZED_FACT',
+      'L4_FINALIZED_MODEL',
+      'L1_HISTORY',
+    ]);
+    expect(lineage.edges).toContainEqual({
+      id: 'edge-L3_FINALIZED_FACT-L4_FINALIZED_MODEL',
+      source: 'L3_FINALIZED_FACT',
+      target: 'L4_FINALIZED_MODEL',
+    });
+    expect(lineage.nodes.map((node) => node.technicalName)).not.toContain('V_EKKO_DIM');
+    expect(lineage.nodes.map((node) => node.technicalName)).not.toContain('F_PO_PROCESSING_TIME_APT');
+  });
+
   it('dynamically generates full 4-tier semantic lineage for arbitrary tables', () => {
     const tables = [
       {

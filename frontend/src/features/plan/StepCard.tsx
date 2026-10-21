@@ -147,6 +147,11 @@ export const StepCard: React.FC<StepCardProps> = ({
             <OpIcon className="w-3 h-3 mr-1" />
             <span>{config.label}</span>
           </span>
+          {node.layer && (
+            <span className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-bold text-slate-500">
+              {node.layer}
+            </span>
+          )}
           {node.details?.join_type && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-blue-600 text-white tracking-wide">
               {node.details.join_type}

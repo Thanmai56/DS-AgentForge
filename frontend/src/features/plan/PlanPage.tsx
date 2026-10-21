@@ -1,7 +1,7 @@
 // frontend/src/features/plan/PlanPage.tsx
 // Main interactive modeling plan page with visual lanes, step card editing, and summary panel
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layers,
@@ -19,6 +19,96 @@ import { EditStepPanel } from './EditStepPanel';
 import { SummaryPanel } from './SummaryPanel';
 import { revisePlanApi } from './planApi';
 import { InspectionTraceModal } from './InspectionTraceModal';
+import { PlanComponentInspector } from './PlanComponentInspector';
+import { CompressedEntity, CompressedField } from '../../utils/schemaCompressor';
+import { LineageNodeData } from '../../components/lineage/DatasphereLineageView';
+import { ViewInternalLineageModal } from '../../components/lineage/ViewInternalLineageModal';
+import { useStore } from '../../store/useStore';
+
+function toInspectorEntity(
+  node: PlanNode | null,
+  sourceName: string | null,
+  entities: CompressedEntity[],
+): LineageNodeData | null {
+  if (sourceName) {
+    const entity = entities.find((item) => item.name === sourceName);
+    if (!entity) {
+      return {
+        technicalName: sourceName,
+        businessName: sourceName,
+        kind: 'table',
+        fieldCount: 0,
+        fields: [],
+        onSelectNode: () => undefined,
+      };
+    }
+    return {
+      technicalName: entity.name,
+      businessName: entity.business_name || entity.name,
+      kind: entity.kind,
+      fieldCount: entity.fields.length,
+      fields: entity.fields,
+      sources: entity.sources,
+      joins: entity.joins,
+      calculatedFields: entity.calculatedFields,
+      onSelectNode: () => undefined,
+    };
+  }
+
+  if (!node) return null;
+
+  const sourceFields = new Map<string, CompressedField>();
+  entities.forEach((entity) => entity.fields.forEach((field) => sourceFields.set(field.name, field)));
+  const nodeFields = node.columns.map((column) => {
+    const name = column.split('.').pop() || column;
+    return sourceFields.get(name) || {
+      name,
+      data_type: 'NVARCHAR',
+      is_key: false,
+      label: name,
+      semantic_role: 'dimension' as const,
+    };
+  });
+  const joinPairs = node.details?.on || [];
+  const joins = joinPairs.map((pair) => {
+    const [leftField = '', rightField = ''] = pair;
+    const leftSource = leftField.includes('.') ? leftField.split('.')[0] : node.inputs[0] || '';
+    const rightSource = rightField.includes('.') ? rightField.split('.')[0] : node.inputs[1] || node.inputs[0] || '';
+    return {
+      leftSource,
+      rightSource,
+      leftField: leftField.split('.').pop() || leftField,
+      rightField: rightField.split('.').pop() || rightField,
+      joinType: node.details?.join_type || 'inner',
+    };
+  });
+  const formula = node.details?.formula;
+  const calculatedFields = formula
+    ? [{
+        name: node.columns.find((column) => !sourceFields.has(column)) || node.id,
+        label: node.id,
+        formula,
+      }]
+    : [];
+  const kind = node.layer === 'L4' || node.operation === 'analytic_model'
+    ? 'analytic_model'
+    : node.layer === 'L3' || node.operation === 'join'
+      ? 'fact'
+      : 'view';
+
+  return {
+    technicalName: node.id,
+    businessName: node.reason || node.id,
+    kind,
+    fieldCount: nodeFields.length,
+    fields: nodeFields,
+    sources: node.inputs,
+    joins,
+    calculatedFields,
+    description: node.reason,
+    onSelectNode: () => undefined,
+  };
+}
 
 // Default initial plan for standalone preview if no run is active
 const SAMPLE_PO_PLAN: Plan = {
@@ -143,6 +233,16 @@ const SAMPLE_PO_PLAN: Plan = {
 };
 
 export const PlanPage: React.FC = () => {
+  const storeEntities = useStore((state) => state.extractedEntities) as CompressedEntity[];
+  const [storedSourceEntities] = useState<CompressedEntity[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('activeSourceEntities');
+      return raw ? JSON.parse(raw) as CompressedEntity[] : [];
+    } catch {
+      return [];
+    }
+  });
+  const extractedEntities = storeEntities.length ? storeEntities : storedSourceEntities;
   const [plan, setPlan] = useState<Plan>(() => {
     try {
       const saved = sessionStorage.getItem('activePlan');
@@ -157,11 +257,18 @@ export const PlanPage: React.FC = () => {
   });
 
   const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [isEditStepOpen, setIsEditStepOpen] = useState(false);
+  const [isLineageOpen, setIsLineageOpen] = useState(false);
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(true);
   const [isInspectOpen, setIsInspectOpen] = useState(false);
   const [quickInstruction, setQuickInstruction] = useState('');
   const [isRevising, setIsRevising] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const selectedLineageEntity = useMemo(
+    () => toInspectorEntity(selectedNode, selectedSource, extractedEntities || []),
+    [selectedNode, selectedSource, extractedEntities],
+  );
 
   // Auto-dismiss notifications after 4 seconds
   useEffect(() => {
@@ -174,6 +281,9 @@ export const PlanPage: React.FC = () => {
   // Handle plan updates from direct edit or instruction
   const handlePlanUpdated = (updatedPlan: Plan, affectedNodes: string[]) => {
     setPlan(updatedPlan);
+    if (selectedNode) {
+      setSelectedNode(updatedPlan.nodes.find((node) => node.id === selectedNode.id) || null);
+    }
     try {
       sessionStorage.setItem('activePlan', JSON.stringify(updatedPlan));
     } catch {}
@@ -205,18 +315,11 @@ export const PlanPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // Accept and Build Lineage -> Opens Datasphere Graphical View Editor in LineagePage
+  // Open the plan-driven end-to-end lineage before generating its JSON artifacts.
   const handleAcceptPlan = () => {
     sessionStorage.setItem('activePlan', JSON.stringify(plan));
     sessionStorage.setItem('activePlanId', planId);
-
-    // Identify first proposed view
-    const proposed = plan.nodes.find(
-      (n) => !n.is_existing && (n.operation === 'join' || n.layer === 'L3' || n.layer === 'L4')
-    );
-    const targetViewId = proposed ? proposed.id : 'F_PO_PROCESSING_TIME_APT';
-
-    navigate(`/lineage?view=${targetViewId}`);
+    navigate('/lineage?view=overview');
   };
 
   return (
@@ -237,7 +340,7 @@ export const PlanPage: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
-              5 Architectural Lanes: Sources (L0) → Staging (L1) → Views (L2) → Fact (L3) → Analytic Model (L4)
+              Five architectural levels: Sources (L0) → Staging (L1) → Views (L2) → Fact (L3) → Analytic Model (L4)
             </p>
           </div>
         </div>
@@ -292,7 +395,7 @@ export const PlanPage: React.FC = () => {
             <span>Inspect Pipeline</span>
           </button>
 
-          {/* Accept and Build Lineage (Phase 2 Stub) */}
+          {/* Accept the plan and open its end-to-end lineage */}
           <button
             type="button"
             onClick={handleAcceptPlan}
@@ -331,15 +434,39 @@ export const PlanPage: React.FC = () => {
         <PlanLanesCanvas
           plan={plan}
           selectedNode={selectedNode}
-          onSelectNode={(node) => setSelectedNode(node)}
+          selectedSource={selectedSource}
+          onSelectNode={(node) => {
+            setSelectedNode(node);
+            setSelectedSource(null);
+            setIsEditStepOpen(false);
+          }}
+          onSelectSource={(sourceName) => {
+            setSelectedSource(sourceName);
+            setSelectedNode(null);
+            setIsEditStepOpen(false);
+          }}
         />
 
-        {/* Slide-over Edit Step Panel */}
-        {selectedNode && (
+        {selectedLineageEntity && (
+          <PlanComponentInspector
+            entity={selectedLineageEntity}
+            node={selectedNode || undefined}
+            onClose={() => {
+              setSelectedNode(null);
+              setSelectedSource(null);
+              setIsEditStepOpen(false);
+            }}
+            onEdit={() => setIsEditStepOpen(true)}
+            onOpenLineage={() => setIsLineageOpen(true)}
+          />
+        )}
+
+        {/* Step editing remains available from the component inspector. */}
+        {selectedNode && isEditStepOpen && (
           <EditStepPanel
             planId={planId}
             node={selectedNode}
-            onClose={() => setSelectedNode(null)}
+            onClose={() => setIsEditStepOpen(false)}
             onPlanUpdated={handlePlanUpdated}
           />
         )}
@@ -358,6 +485,12 @@ export const PlanPage: React.FC = () => {
         onClose={() => setIsInspectOpen(false)}
         planId={planId}
       />
+      {isLineageOpen && selectedLineageEntity && (
+        <ViewInternalLineageModal
+          entity={selectedLineageEntity}
+          onClose={() => setIsLineageOpen(false)}
+        />
+      )}
     </div>
   );
 };

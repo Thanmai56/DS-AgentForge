@@ -299,6 +299,11 @@ export const ChatRequirementPage: React.FC = () => {
 
       // Generate visual plan via Phase 1 backend API
       try {
+        try {
+          sessionStorage.setItem('activeSourceEntities', JSON.stringify(allExtractedSources));
+        } catch (storageError) {
+          console.warn('Could not persist source elements for the plan inspector:', storageError);
+        }
         const { generatePlanApi } = await import('../features/plan/planApi');
         const res = await generatePlanApi(prompt, payloadMetadata, {
           sampleData: sampleDataPayload,

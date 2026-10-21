@@ -108,16 +108,10 @@ def _validate_join_node(
     errors: list[str],
     warnings: list[str],
 ) -> None:
-    """Validates join keys exist on left and right sides."""
+    """Validates each join key against the input named by its qualifier."""
     if len(node.inputs) < 2:
         errors.append(f"Join node '{node.id}' must specify at least 2 inputs, got {len(node.inputs)}.")
         return
-
-    left_source = node.inputs[0]
-    right_source = node.inputs[1]
-
-    left_cols = available_objects.get(left_source, set())
-    right_cols = available_objects.get(right_source, set())
 
     join_on = node.details.on
     if not join_on:
@@ -129,20 +123,39 @@ def _validate_join_node(
             errors.append(f"Join node '{node.id}' join condition must be [left_col, right_col] pair, got {pair}.")
             continue
 
-        left_key = _strip_qualifier(pair[0])
-        right_key = _strip_qualifier(pair[1])
+        for side, reference, default_input in (
+            ("left", pair[0], node.inputs[0]),
+            ("right", pair[1], node.inputs[1]),
+        ):
+            source = _resolve_join_input(reference, node.inputs, default_input)
+            if source is None:
+                qualifier = reference.rsplit(".", 1)[0]
+                errors.append(
+                    f"Join node '{node.id}' {side} join key '{reference}' references input "
+                    f"'{qualifier}', which is not one of the join inputs: {node.inputs}."
+                )
+                continue
 
-        if left_key not in left_cols:
-            errors.append(
-                f"Join node '{node.id}' left join key '{pair[0]}' not found in left input '{left_source}'. "
-                f"Available columns: {sorted(left_cols)}"
-            )
+            columns = available_objects.get(source)
+            if columns is None:
+                # check_plan already reports inputs missing from metadata or preceding steps.
+                continue
 
-        if right_key not in right_cols:
-            errors.append(
-                f"Join node '{node.id}' right join key '{pair[1]}' not found in right input '{right_source}'. "
-                f"Available columns: {sorted(right_cols)}"
-            )
+            key = _strip_qualifier(reference)
+            if key not in columns:
+                errors.append(
+                    f"Join node '{node.id}' {side} join key '{reference}' not found in input '{source}'. "
+                    f"Available columns: {sorted(columns)}"
+                )
+
+
+def _resolve_join_input(reference: str, inputs: list[str], default_input: str) -> str | None:
+    """Uses a key qualifier to select its input, preserving positional behavior for bare keys."""
+    if "." not in reference:
+        return default_input
+
+    qualifier = reference.rsplit(".", 1)[0]
+    return next((input_name for input_name in inputs if input_name == qualifier), None)
 
 
 def _compute_node_columns(

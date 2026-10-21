@@ -26,6 +26,8 @@ import { CompressedEntity } from '../utils/schemaCompressor';
 import { buildDynamicLineage } from '../utils/dynamicLineageBuilder';
 import { formulaToCsn } from '../core/csn/formulaConverter';
 import { mapSourceDataType } from '../core/csn/sourceDataType';
+import { Plan } from '../features/plan/types';
+import { buildPlanExportEntities } from '../features/plan/planExport';
 import amReferenceExport from '../../../fixtures/reference/AM_PO_APT.json';
 import factReferenceExport from '../../../fixtures/reference/F_PO_PROCESSING_TIME_APT (1).json';
 
@@ -66,19 +68,67 @@ const buildSimpleViewSql = (entity: CompressedEntity, source: string): string =>
   ].join('\r\n');
 };
 
+function buildCsnFromClause(entity: CompressedEntity): Record<string, unknown> {
+  const sources = entity.sources || [];
+  if (!sources.length) return {};
+
+  let from: Record<string, unknown> = { ref: [sources[0]], as: sources[0] };
+  for (const rightSource of sources.slice(1)) {
+    const join = entity.joins?.find((item) => item.rightSource === rightSource);
+    const leftSource = join?.leftSource || sources[0];
+    const on = join
+      ? [
+          { ref: [leftSource, join.leftField] },
+          '=',
+          { ref: [rightSource, join.rightField] },
+        ]
+      : undefined;
+    from = {
+      join: join?.joinType || 'inner',
+      args: [from, { ref: [rightSource], as: rightSource }],
+      ...(on ? { on } : {}),
+    };
+  }
+  return from;
+}
+
 export const ExportPage: React.FC = () => {
   const navigate = useNavigate();
   const { extractedEntities, businessRequirement } = useStore();
+  const [activePlan] = useState<Plan | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('activePlan');
+      return raw ? JSON.parse(raw) as Plan : null;
+    } catch {
+      return null;
+    }
+  });
+  const [storedSourceEntities] = useState<CompressedEntity[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('activeSourceEntities');
+      return raw ? JSON.parse(raw) as CompressedEntity[] : [];
+    } catch {
+      return [];
+    }
+  });
+  const sourceEntities = extractedEntities.length ? extractedEntities as CompressedEntity[] : storedSourceEntities;
   const [selectedFileId, setSelectedFileId] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
 
   // Build the ordered CSN JSON files dynamically
   const exportFiles = useMemo<ExportFileItem[]>(() => {
-    // If user uploaded or specified entities, dynamically generate complete CSN chain for them
-    if (extractedEntities && extractedEntities.length > 0) {
-      const lineage = buildDynamicLineage(extractedEntities, businessRequirement);
-      const allEntities = lineage.nodes.length > 0
+    // An accepted plan is the source of truth for generated model steps.
+    const planEntities = activePlan
+      ? buildPlanExportEntities(activePlan, sourceEntities)
+      : null;
+
+    // Preserve the metadata-only export path when no accepted plan is available.
+    if ((planEntities && planEntities.length > 0) || sourceEntities.length > 0) {
+      const lineage = planEntities
+        ? null
+        : buildDynamicLineage(sourceEntities, businessRequirement);
+      const allEntities = planEntities || (lineage && lineage.nodes.length > 0
         ? lineage.nodes
             .filter((n) => !(n.kind === 'table' && n.fieldCount === 0))
             .map((n) => ({
@@ -92,12 +142,25 @@ export const ExportPage: React.FC = () => {
             filters: n.filters,
             groupBy: n.groupBy,
           }))
-        : extractedEntities;
+        : sourceEntities);
 
       return allEntities.map((ent) => {
         let stepOrder = 1;
         let stepLabel = 'Step 1: Local Table';
-        if (ent.kind === 'view') {
+        const planNode = activePlan?.nodes.find((node) => node.id === ent.name);
+        if (planNode) {
+          const layer = planNode.layer || (
+            planNode.operation === 'analytic_model'
+              ? 'L4'
+              : planNode.operation === 'join' || planNode.operation === 'calculated_column'
+                ? 'L3'
+                : planNode.is_existing
+                  ? 'L2'
+                  : 'L1'
+          );
+          stepOrder = Number(layer.slice(1)) + 1;
+          stepLabel = `Step ${stepOrder}: ${layer} ${planNode.operation.replace('_', ' ')}`;
+        } else if (ent.kind === 'view') {
           stepOrder = 2;
           stepLabel = 'Step 2: Dimension/Intermediate View';
         } else if (ent.kind === 'fact') {
@@ -140,7 +203,7 @@ export const ExportPage: React.FC = () => {
           const fromSource = ent.sources[0];
           entityDef.query = {
             SELECT: {
-              from: { ref: [fromSource], as: fromSource },
+              from: buildCsnFromClause(ent),
               columns: ent.fields.map((f) => {
                 const calculatedField = ent.calculatedFields?.find(
                   (field: { name: string }) => field.name === f.name,
@@ -162,17 +225,6 @@ export const ExportPage: React.FC = () => {
           }
           if (ent.groupBy?.length) {
             entityDef.query.SELECT.groupBy = ent.groupBy.map((field: string) => ({ ref: [field] }));
-          }
-          if (ent.joins && ent.joins.length > 0) {
-            entityDef.query.SELECT.joins = ent.joins.map((j: any) => ({
-              type: j.joinType || 'inner',
-              target: { ref: [j.rightSource], as: j.rightSource },
-              on: [
-                { ref: [j.leftSource, j.leftField] },
-                '=',
-                { ref: [j.rightSource, j.rightField] }
-              ]
-            }));
           }
         }
 
@@ -316,7 +368,7 @@ export const ExportPage: React.FC = () => {
         jsonObj: amViewObj,
       },
     ];
-  }, [businessRequirement, extractedEntities]);
+  }, [activePlan, businessRequirement, sourceEntities]);
 
   // Set default selected file if none or invalid
   const currentFile = useMemo(() => {
