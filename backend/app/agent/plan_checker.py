@@ -170,13 +170,20 @@ def _compute_node_columns(
     if node.columns:
         for col in node.columns:
             output_cols.add(_strip_qualifier(col))
+    for calculated_field in node.calculated_fields:
+        if not calculated_field.name.strip() or not calculated_field.formula.strip():
+            errors.append(
+                f"Node '{node.id}' has a calculated field that requires both a name and formula."
+            )
+        else:
+            output_cols.add(_strip_qualifier(calculated_field.name))
 
     # If node is an existing CDS view in metadata, its allowed columns come from its definition
     existing_obj = metadata.get_object(node.id) if node.is_existing else None
     existing_cols = existing_obj.column_names() if existing_obj else set()
 
     # If node introduces a calculated column, include it
-    if node.operation == "calculated_column" or node.details.formula:
+    if node.operation == "calculated_column" or node.details.formula or node.calculated_fields:
         if not node.columns and node.id:
             output_cols.add(node.id)
 

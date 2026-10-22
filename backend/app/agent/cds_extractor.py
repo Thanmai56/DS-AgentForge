@@ -18,6 +18,11 @@ from typing import Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
+def _is_delta_entity_name(name: str) -> bool:
+    leaf_name = name.rsplit(".", 1)[-1].strip()
+    return leaf_name.upper().endswith(("_DELTA", "-DELTA"))
+
+
 class ColumnMeta(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -165,7 +170,33 @@ def parse_csn_metadata(raw: Any, filename: str = "uploaded_metadata.json") -> Ex
 
     # Case 1: SAP CSN with "definitions" dict
     if isinstance(raw, dict) and "definitions" in raw and isinstance(raw["definitions"], dict):
+        delta_entities: set[str] = set()
+        for defn in raw["definitions"].values():
+            if not isinstance(defn, dict):
+                continue
+            delta_metadata = defn.get("@DataWarehouse.delta", {})
+            delta_refs: list[Any] = []
+            if isinstance(delta_metadata, dict):
+                nested_refs = delta_metadata.get("deltaFromEntities", [])
+                if isinstance(nested_refs, str):
+                    delta_refs.append(nested_refs)
+                elif isinstance(nested_refs, list):
+                    delta_refs.extend(nested_refs)
+            direct_refs = defn.get("@DataWarehouse.delta.deltaFromEntities", [])
+            if isinstance(direct_refs, str):
+                delta_refs.append(direct_refs)
+            elif isinstance(direct_refs, list):
+                delta_refs.extend(direct_refs)
+            if isinstance(delta_refs, list):
+                delta_entities.update(
+                    str(ref).rsplit(".", 1)[-1].casefold()
+                    for ref in delta_refs
+                    if isinstance(ref, str)
+                )
+
         for name, defn in raw["definitions"].items():
+            if _is_delta_entity_name(name) or name.rsplit(".", 1)[-1].casefold() in delta_entities:
+                continue
             if not isinstance(defn, dict):
                 extracted.unsupported_structures.append(f"Definition '{name}' is not a dictionary.")
                 continue
@@ -183,6 +214,8 @@ def parse_csn_metadata(raw: Any, filename: str = "uploaded_metadata.json") -> Ex
         for item in raw:
             if isinstance(item, dict):
                 name = item.get("name") or item.get("technicalName") or item.get("table_name") or "UNKNOWN"
+                if _is_delta_entity_name(str(name)):
+                    continue
                 cds_obj = _parse_generic_table(name, item)
                 if not cds_obj.columns:
                     extracted.parsing_warnings.append(f"Table '{name}' defines no columns.")
@@ -196,6 +229,8 @@ def parse_csn_metadata(raw: Any, filename: str = "uploaded_metadata.json") -> Ex
         if "tables" in raw and isinstance(raw["tables"], list):
             return parse_csn_metadata(raw["tables"], filename=filename)
         for name, item in raw.items():
+            if _is_delta_entity_name(name):
+                continue
             if isinstance(item, dict) and ("columns" in item or "elements" in item or "fields" in item):
                 cds_obj = _parse_generic_table(name, item)
                 if not cds_obj.columns:
@@ -367,7 +402,9 @@ def _walk_from_clause(node: Any, sources: list[str], joins: list[JoinMeta]) -> N
 
     # Direct reference: {"ref": ["TABLENAME"]}
     if "ref" in node and isinstance(node["ref"], list):
-        sources.append(node["ref"][0])
+        source_name = str(node["ref"][0])
+        if not _is_delta_entity_name(source_name):
+            sources.append(source_name)
         return
 
     # Sub-select: {"SELECT": {...}}
@@ -381,12 +418,16 @@ def _walk_from_clause(node: Any, sources: list[str], joins: list[JoinMeta]) -> N
         args = node.get("args", [])
         left_src = ""
         right_src = ""
+        left_object = ""
+        right_object = ""
 
         if len(args) >= 1 and isinstance(args[0], dict):
             left_src = args[0].get("as") or (args[0].get("ref", [None])[0] if "ref" in args[0] else "")
+            left_object = args[0].get("ref", [left_src])[0]
             _walk_from_clause(args[0], sources, joins)
         if len(args) >= 2 and isinstance(args[1], dict):
             right_src = args[1].get("as") or (args[1].get("ref", [None])[0] if "ref" in args[1] else "")
+            right_object = args[1].get("ref", [right_src])[0]
             _walk_from_clause(args[1], sources, joins)
 
         # Parse on conditions: e.g. [{"ref": ["T1", "C1"]}, "=", {"ref": ["T2", "C2"]}]
@@ -407,14 +448,36 @@ def _walk_from_clause(node: Any, sources: list[str], joins: list[JoinMeta]) -> N
                         continue
                 i += 1
 
-        joins.append(
-            JoinMeta(
-                join_type=j_type,
-                left_source=left_src,
-                right_source=right_src,
-                on=on_pairs,
+        contains_delta_source = any(_from_clause_contains_delta(arg) for arg in args)
+        if (
+            not contains_delta_source
+            and not _is_delta_entity_name(str(left_object))
+            and not _is_delta_entity_name(str(right_object))
+        ):
+            joins.append(
+                JoinMeta(
+                    join_type=j_type,
+                    left_source=left_src,
+                    right_source=right_src,
+                    on=on_pairs,
+                )
             )
-        )
+
+
+def _from_clause_contains_delta(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    reference = node.get("ref")
+    if isinstance(reference, list) and reference and _is_delta_entity_name(str(reference[0])):
+        return True
+    if "SELECT" in node:
+        select = node["SELECT"]
+        return isinstance(select, dict) and _from_clause_contains_delta(select.get("from"))
+    return any(
+        _from_clause_contains_delta(child)
+        for child in node.get("args", [])
+        if isinstance(child, dict)
+    )
 
 
 def _format_csn_expr(expr: Any) -> str:

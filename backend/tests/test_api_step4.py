@@ -136,7 +136,6 @@ def test_revise_plan_direct_step_edit(sample_csn_payload):
     assert revised_data["plan_id"] == plan_id
     # Affected nodes should include the edited node and downstream dependents
     assert "F_PO_PROCESSING_TIME_APT" in revised_data["affected_nodes"]
-    assert "CALC_PROCESSING_DAYS" in revised_data["affected_nodes"]
     assert "AM_PO_APT" in revised_data["affected_nodes"]
 
     # Verify updated node in returned plan
@@ -195,4 +194,3 @@ def test_revise_plan_instruction_success(sample_csn_payload):
     assert data["plan_id"] == plan_id
     assert "plan" in data
     assert isinstance(data["affected_nodes"], list)
-

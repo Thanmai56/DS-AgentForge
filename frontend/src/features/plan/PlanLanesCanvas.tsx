@@ -1,9 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   ArrowRight,
-  Box,
   Database,
-  Filter,
   Layers,
   Sigma,
 } from 'lucide-react';
@@ -37,22 +35,15 @@ const LANES: LaneConfig[] = [
   },
   {
     id: 'L1',
-    title: 'Projections & Filters',
-    subtitle: 'Staging, cleaning & ingestion',
-    icon: Filter,
+    title: 'Wrapper Datasets',
+    subtitle: 'Relational Dataset over each source',
+    icon: Database,
     headerBg: 'bg-amber-50 text-amber-900 border-amber-200',
   },
   {
-    id: 'L2',
-    title: 'Intermediate Views',
-    subtitle: 'Existing views & dimensions',
-    icon: Box,
-    headerBg: 'bg-emerald-50 text-emerald-900 border-emerald-200',
-  },
-  {
     id: 'L3',
-    title: 'Fact View',
-    subtitle: 'Joins & calculated columns',
+    title: 'Graphical Views',
+    subtitle: 'Joins, calculations & KPIs',
     icon: Layers,
     headerBg: 'bg-blue-50 text-blue-900 border-blue-200',
   },
@@ -76,7 +67,6 @@ export const PlanLanesCanvas: React.FC<PlanLanesCanvasProps> = ({
   const laneSteps = useMemo(() => {
     const grouped: Record<string, Array<Extract<PlanGraphNodeData, { kind: 'step' }>>> = {
       L1: [],
-      L2: [],
       L3: [],
       L4: [],
     };
@@ -95,7 +85,7 @@ export const PlanLanesCanvas: React.FC<PlanLanesCanvasProps> = ({
 
   return (
     <div className="h-full w-full overflow-auto bg-[#F5F7FA] p-4">
-      <div className="grid h-full min-h-[560px] min-w-[1280px] grid-cols-5 gap-3">
+      <div className="grid h-full min-h-[560px] min-w-[1024px] grid-cols-4 gap-3">
         {LANES.map((lane, laneIndex) => {
           const LaneIcon = lane.icon;
           const steps = laneSteps[lane.id] || [];

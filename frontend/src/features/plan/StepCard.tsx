@@ -145,7 +145,7 @@ export const StepCard: React.FC<StepCardProps> = ({
           </span>
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1 ${config.badgeBg}`}>
             <OpIcon className="w-3 h-3 mr-1" />
-            <span>{config.label}</span>
+            <span>{node.is_wrapper ? 'RELATIONAL DATASET WRAPPER' : config.label}</span>
           </span>
           {node.layer && (
             <span className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-bold text-slate-500">
@@ -183,6 +183,25 @@ export const StepCard: React.FC<StepCardProps> = ({
         {node.reason || 'Transforms source entities according to analytical requirements.'}
       </p>
 
+      {node.is_wrapper && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+            node.is_projection_enabled
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            Projection {node.is_projection_enabled ? 'enabled' : 'not configured'}
+          </span>
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+            node.is_filter_enabled
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            Filter {node.is_filter_enabled ? 'enabled' : 'not configured'}
+          </span>
+        </div>
+      )}
+
       {/* Join specific "Rows Kept" sentence */}
       {node.operation.toLowerCase() === 'join' && (
         <div className="mt-2.5 p-2 rounded-lg bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900 leading-normal flex items-start space-x-1.5">
@@ -207,9 +226,21 @@ export const StepCard: React.FC<StepCardProps> = ({
       )}
 
       {/* Calculation formula callout */}
-      {node.details?.formula && (
-        <div className="mt-2 p-1.5 rounded bg-emerald-50 border border-emerald-100 font-mono text-[11px] text-emerald-900 truncate">
-          = {node.details.formula}
+      {(node.calculated_fields?.length || node.details?.formula) && (
+        <div className="mt-2 space-y-1">
+          {node.calculated_fields?.map((field) => (
+            <div
+              key={field.name}
+              className="rounded border border-emerald-100 bg-emerald-50 p-1.5 font-mono text-[11px] text-emerald-900"
+            >
+              <span className="font-bold">{field.name} = </span>{field.formula}
+            </div>
+          ))}
+          {!node.calculated_fields?.length && node.details?.formula && (
+            <div className="rounded border border-emerald-100 bg-emerald-50 p-1.5 font-mono text-[11px] text-emerald-900">
+              = {node.details.formula}
+            </div>
+          )}
         </div>
       )}
 

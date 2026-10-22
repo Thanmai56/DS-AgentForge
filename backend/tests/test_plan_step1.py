@@ -93,15 +93,50 @@ def test_cds_metadata_extractor_real_csn():
     # Check existing view query extraction
     v_delivery = meta.objects["V_PO_FINAL_DELIVERY_APT"]
     assert "ZIPOHISTEXT" in v_delivery.sources
-    assert len(v_delivery.filters) > 0  # Should extract GOODSMOVEMENTTYPE = 101 filter
+    assert len(v_delivery.filters) > 0
     assert "FINAL_DELIVERY_DATE" in v_delivery.columns
 
-    # Check compact text output
     compact = meta.to_compact_text()
     assert "[TABLE] ZIPOHDRAPT" in compact
     assert "[VIEW] V_PO_FINAL_DELIVERY_APT" in compact
     assert "[FACT] F_PO_PROCESSING_TIME_APT" in compact
     assert "COLUMNS:" in compact
+
+
+def test_cds_metadata_extractor_excludes_declared_delta_entities():
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "RAD_S3P.I_SUPPLIER": {
+                "kind": "entity",
+                "@DataWarehouse.delta": {"deltaFromEntities": ["I_SUPPLIER_Delta"]},
+                "elements": {"Supplier": {"type": "cds.String"}},
+            },
+            "RAD_S3P.I_SUPPLIER_Delta": {
+                "kind": "entity",
+                "elements": {"Supplier": {"type": "cds.String"}},
+            },
+        }
+    })
+
+    assert "RAD_S3P.I_SUPPLIER" in metadata.objects
+    assert "RAD_S3P.I_SUPPLIER_Delta" not in metadata.objects
+
+def test_cds_metadata_extractor_excludes_unannotated_delta_entities():
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "I_SUPPLIER": {
+                "kind": "entity",
+                "elements": {"Supplier": {"type": "cds.String"}},
+            },
+            "I_SUPPLIER_Delta": {
+                "kind": "entity",
+                "elements": {"Supplier": {"type": "cds.String"}},
+            },
+        }
+    })
+
+    assert "I_SUPPLIER" in metadata.objects
+    assert "I_SUPPLIER_Delta" not in metadata.objects
 
 
 def test_plan_checker_valid_plan_with_existing_view():

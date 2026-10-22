@@ -95,6 +95,35 @@ Takes a natural language modeling requirement, uploaded SAP Datasphere CSN / JSO
 }
 ```
 
+Plan nodes may also include `calculated_fields` to represent multiple calculated outputs on one fact node:
+
+```json
+{
+  "id": "F_ORDER",
+  "operation": "join",
+  "inputs": ["WRAP_ORDERS"],
+  "columns": ["QUANTITY", "UNIT_PRICE", "ORDER_VALUE", "ORDER_VALUE_WITH_TAX"],
+  "calculated_fields": [
+    {
+      "name": "ORDER_VALUE",
+      "formula": "QUANTITY * UNIT_PRICE",
+      "label": "Order value",
+      "data_type": "cds.Decimal(15,2)"
+    },
+    {
+      "name": "ORDER_VALUE_WITH_TAX",
+      "formula": "QUANTITY * UNIT_PRICE * 1.2",
+      "label": "Order value with tax",
+      "data_type": "cds.Decimal(15,2)"
+    }
+  ],
+  "details": { "join_type": "", "on": [], "condition": "", "formula": "", "aggregation": "" },
+  "reason": "Calculate both order-value outputs."
+}
+```
+
+Each calculated field is an independent output column. Include its name in the node's `columns`. The legacy `details.formula` property remains supported for older single-formula plans.
+
 ---
 
 ## 2. Revise Plan (`POST /api/plan/revise`)
@@ -142,7 +171,7 @@ Allows revising an existing plan session either by **direct step edit** (e.g. us
 {
   "plan_id": "8d3e9150-1f9e-4bca-8e2b-2a21051515bb",
   "plan": { ... },
-  "affected_nodes": ["F_PO_PROCESSING_TIME_APT", "CALC_PROCESSING_DAYS", "AM_PO_APT"],
+  "affected_nodes": ["F_PO_PROCESSING_TIME_APT", "AM_PO_APT"],
   "updated_at": "2026-10-15T22:35:00.000000+00:00"
 }
 ```

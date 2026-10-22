@@ -148,7 +148,6 @@ class ViewSpecRenderer:
                 "remoteObject": spec.get("remote_object"),
                 "targetLocalTable": spec.get("target_local_table") or f"{spec.get('remote_object')}_LOCAL",
                 "replicationMode": spec.get("replication_mode", "SCHEDULED"),
-                "deltaColumn": spec.get("delta_column"),
                 "fullLoadFirst": spec.get("full_load_first", True),
                 "columns": spec.get("projected_columns", []),
             },

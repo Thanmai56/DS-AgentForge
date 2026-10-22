@@ -26,9 +26,19 @@ export interface PlanNode {
   operation: OperationType | string;
   inputs: string[];
   columns: string[];
+  calculated_fields?: Array<{
+    name: string;
+    formula: string;
+    label?: string;
+    data_type?: string;
+  }>;
   details: NodeDetails;
   reason: string;
   is_existing?: boolean;
+  is_wrapper?: boolean;
+  is_manual?: boolean;
+  is_projection_enabled?: boolean;
+  is_filter_enabled?: boolean;
   layer?: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | string;
 }
 

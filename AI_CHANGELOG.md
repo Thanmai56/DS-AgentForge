@@ -1,5 +1,18 @@
 # AI Change Log — DS ModelForge
 
+## 2026-10-21 — Multi-formula fact planning and wrapper configuration
+
+### Added / changed
+- Updated the planner prompt to require each distinct row-level formula as a separate `calculated_fields` entry on the L3 fact node, with each formula name included in the fact output columns.
+- Added typed calculated-field entries to the backend plan model and made the plan checker include those names in the node's output columns.
+- Updated frontend plan display and export mapping to preserve and emit every named calculation, while retaining compatibility with legacy single `details.formula` plans.
+- Added a regression test covering two independent formula columns in one fact entity.
+- Kept the requested source modeling shape: one wrapper per source with projection and filter configured in place rather than extra transform nodes.
+
+### Verification
+- Python syntax diagnostics passed for changed backend files. Runtime checks confirmed the fixture plan passes the deterministic plan checker, retains two distinct fact calculations, and synthesizes one lineage calculation node per formula.
+- Focused pytest execution was blocked because `pytest` is not installed in the selected Python interpreter. Frontend editor diagnostics reported no errors; frontend unit/build execution remains unverified.
+
 ## 2026-09-30 — Foundation audit + run lifecycle fixes
 
 ### Added / fixed

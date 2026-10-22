@@ -24,6 +24,12 @@ import { CompressedEntity, CompressedField } from '../../utils/schemaCompressor'
 import { LineageNodeData } from '../../components/lineage/DatasphereLineageView';
 import { ViewInternalLineageModal } from '../../components/lineage/ViewInternalLineageModal';
 import { useStore } from '../../store/useStore';
+import {
+  addPlanTransform,
+  getNodeInputFields,
+  getRequiredNodeColumns,
+  preparePlanPipeline,
+} from './planPipeline';
 
 function toInspectorEntity(
   node: PlanNode | null,
@@ -82,14 +88,19 @@ function toInspectorEntity(
       joinType: node.details?.join_type || 'inner',
     };
   });
+  const calculatedFields = [...(node.calculated_fields || []).map((field) => ({
+    name: field.name,
+    label: field.label || field.name,
+    formula: field.formula,
+  }))];
   const formula = node.details?.formula;
-  const calculatedFields = formula
-    ? [{
-        name: node.columns.find((column) => !sourceFields.has(column)) || node.id,
-        label: node.id,
-        formula,
-      }]
-    : [];
+  if (formula && !calculatedFields.length) {
+    calculatedFields.push({
+      name: node.columns.find((column) => !sourceFields.has(column)) || node.id,
+      label: node.id,
+      formula,
+    });
+  }
   const kind = node.layer === 'L4' || node.operation === 'analytic_model'
     ? 'analytic_model'
     : node.layer === 'L3' || node.operation === 'join'
@@ -168,6 +179,22 @@ const SAMPLE_PO_PLAN: Plan = {
         'SUPPLIER',
         'CREATIONDATE',
         'FINAL_DELIVERY_DATE',
+        'Processing_Days',
+        'Total_Delivered_Order',
+      ],
+      calculated_fields: [
+        {
+          name: 'Processing_Days',
+          formula: 'DAYS_BETWEEN(TO_DATE(CREATIONDATE), TO_DATE(FINAL_DELIVERY_DATE)) + 1',
+          label: 'Processing days',
+          data_type: 'cds.Integer',
+        },
+        {
+          name: 'Total_Delivered_Order',
+          formula: '1',
+          label: 'Delivered order count',
+          data_type: 'cds.Integer',
+        },
       ],
       details: {
         join_type: 'inner',
@@ -181,25 +208,9 @@ const SAMPLE_PO_PLAN: Plan = {
       layer: 'L3',
     },
     {
-      id: 'CALC_PROCESSING_DAYS',
-      operation: 'calculated_column',
-      inputs: ['F_PO_PROCESSING_TIME_APT'],
-      columns: ['Processing_Days', 'Total_Delivered_Order'],
-      details: {
-        join_type: '',
-        on: [],
-        condition: '',
-        formula: 'DAYS_BETWEEN(TO_DATE(CREATIONDATE), TO_DATE(FINAL_DELIVERY_DATE)) + 1',
-        aggregation: '',
-      },
-      reason: 'Compute processing duration in days and base delivery counter.',
-      is_existing: false,
-      layer: 'L3',
-    },
-    {
       id: 'AM_PO_APT',
       operation: 'analytic_model',
-      inputs: ['CALC_PROCESSING_DAYS'],
+      inputs: ['F_PO_PROCESSING_TIME_APT'],
       columns: [
         'PURCHASEORDER',
         'SUPPLIER',
@@ -246,9 +257,9 @@ export const PlanPage: React.FC = () => {
   const [plan, setPlan] = useState<Plan>(() => {
     try {
       const saved = sessionStorage.getItem('activePlan');
-      return saved ? JSON.parse(saved) : SAMPLE_PO_PLAN;
+      return preparePlanPipeline(saved ? JSON.parse(saved) : SAMPLE_PO_PLAN, extractedEntities);
     } catch {
-      return SAMPLE_PO_PLAN;
+      return preparePlanPipeline(SAMPLE_PO_PLAN, extractedEntities);
     }
   });
 
@@ -280,15 +291,70 @@ export const PlanPage: React.FC = () => {
 
   // Handle plan updates from direct edit or instruction
   const handlePlanUpdated = (updatedPlan: Plan, affectedNodes: string[]) => {
-    setPlan(updatedPlan);
+    const retainedWrappers = plan.nodes.filter((node) =>
+      node.is_wrapper && !updatedPlan.nodes.some((updatedNode) => updatedNode.id === node.id),
+    );
+    const preparedPlan = preparePlanPipeline({
+      ...updatedPlan,
+      nodes: [...updatedPlan.nodes, ...retainedWrappers],
+    }, extractedEntities);
+    setPlan(preparedPlan);
     if (selectedNode) {
-      setSelectedNode(updatedPlan.nodes.find((node) => node.id === selectedNode.id) || null);
+      setSelectedNode(preparedPlan.nodes.find((node) => node.id === selectedNode.id) || null);
     }
     try {
-      sessionStorage.setItem('activePlan', JSON.stringify(updatedPlan));
-    } catch {}
+      sessionStorage.setItem('activePlan', JSON.stringify(preparedPlan));
+    } catch (error) {
+      console.error('Could not save the updated modeling plan.', error);
+    }
     setNotification({
       message: `Plan revised! Updated ${affectedNodes.length} affected node(s): ${affectedNodes.join(', ')}`,
+      type: 'success',
+    });
+  };
+
+  const handleAddTransform = (operation: 'projection' | 'filter') => {
+    if (!selectedNode || !selectedNode.is_wrapper) return;
+    try {
+      const result = addPlanTransform(plan, selectedNode, operation);
+      setPlan(result.plan);
+      setSelectedNode(result.node);
+      setSelectedSource(null);
+      sessionStorage.setItem('activePlan', JSON.stringify(result.plan));
+      setNotification({
+        message: `${operation === 'projection' ? 'Projection' : 'Filter'} configuration opened for this wrapper.`,
+        type: 'info',
+      });
+      setIsEditStepOpen(true);
+    } catch (error) {
+      setNotification({
+        message: error instanceof Error ? error.message : 'Could not add the requested transformation.',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleManualStepUpdated = (editedNode: PlanNode) => {
+    const updatedPlan = {
+      ...plan,
+      nodes: plan.nodes.map((node) => node.id === editedNode.id ? editedNode : node),
+    };
+    setPlan(updatedPlan);
+    setSelectedNode(editedNode);
+    try {
+      sessionStorage.setItem('activePlan', JSON.stringify(updatedPlan));
+    } catch (error) {
+      setNotification({
+        message: error instanceof Error ? `Could not save the plan: ${error.message}` : 'Could not save the plan.',
+        type: 'error',
+      });
+      return;
+    }
+    setIsEditStepOpen(false);
+    setNotification({
+      message: editedNode.is_wrapper
+        ? 'Wrapper configuration saved.'
+        : `${editedNode.operation === 'projection' ? 'Projection columns' : 'Filter condition'} saved.`,
       type: 'success',
     });
   };
@@ -340,7 +406,7 @@ export const PlanPage: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Five architectural levels: Sources (L0) → Staging (L1) → Views (L2) → Fact (L3) → Analytic Model (L4)
+              Sources (L0) → Wrapper Relational Datasets (L1) → Fact / Graphical View (L3) → Analytic Model (L4)
             </p>
           </div>
         </div>
@@ -457,6 +523,7 @@ export const PlanPage: React.FC = () => {
               setIsEditStepOpen(false);
             }}
             onEdit={() => setIsEditStepOpen(true)}
+            onAddTransform={handleAddTransform}
             onOpenLineage={() => setIsLineageOpen(true)}
           />
         )}
@@ -468,6 +535,9 @@ export const PlanPage: React.FC = () => {
             node={selectedNode}
             onClose={() => setIsEditStepOpen(false)}
             onPlanUpdated={handlePlanUpdated}
+            availableColumns={getNodeInputFields(selectedNode, plan, extractedEntities)}
+            requiredColumns={getRequiredNodeColumns(selectedNode, plan)}
+            onManualStepUpdated={selectedNode.is_wrapper || selectedNode.is_manual ? handleManualStepUpdated : undefined}
           />
         )}
       </div>

@@ -81,6 +81,35 @@ describe('schemaCompressor - Zero Hardcoding Tests', () => {
     expect(compressed[0].fields[0].is_key).toBe(true);
   });
 
+  it('excludes delta replication entities from compressed metadata and lineage', () => {
+    const compressed = compressAndExtractSchema({
+      definitions: {
+        'RAD_S3P.I_SUPPLIER': {
+          kind: 'entity',
+          '@DataWarehouse.delta': { deltaFromEntities: ['I_SUPPLIER_Delta'] },
+          elements: { Supplier: { type: 'cds.String' } },
+        },
+        'RAD_S3P.I_SUPPLIER_Delta': {
+          kind: 'entity',
+          elements: { Supplier: { type: 'cds.String' } },
+        },
+      },
+    });
+    const lineage = buildDynamicLineage(compressed);
+
+    expect(compressed.map((entity) => entity.name)).toEqual(['RAD_S3P.I_SUPPLIER']);
+    expect(lineage.nodes.map((node) => node.technicalName)).not.toContain('RAD_S3P.I_SUPPLIER_Delta');
+  });
+
+  it('excludes delta-suffixed sources from table-list uploads', () => {
+    const compressed = compressAndExtractSchema([
+      { name: 'I_SUPPLIER', columns: [{ name: 'SUPPLIER', data_type: 'NVARCHAR' }] },
+      { name: 'I_SUPPLIER_Delta', columns: [{ name: 'SUPPLIER', data_type: 'NVARCHAR' }] },
+    ]);
+
+    expect(compressed.map((entity) => entity.name)).toEqual(['I_SUPPLIER']);
+  });
+
   it('classifies query-backed CSN entities as views and extracts their source table', () => {
     const csnInput = {
       definitions: {

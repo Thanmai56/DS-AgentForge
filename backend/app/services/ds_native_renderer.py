@@ -334,7 +334,6 @@ def _render_replication_config(spec: dict) -> dict:
         "remoteObject": spec.get("remote_object", ""),
         "targetLocalTable": spec.get("target_local_table", ""),
         "replicationMode": spec.get("replication_mode", "SCHEDULED"),
-        "deltaColumn": spec.get("delta_column"),
         "fullLoadFirst": spec.get("full_load_first", True),
         "columns": spec.get("projected_columns", []),
         "canvas": {
@@ -355,12 +354,11 @@ def _render_replication_config(spec: dict) -> dict:
                     "iconMeta": {
                         "icon": "ReplicationIcon",
                         "label": "Replication",
-                        "tooltip": "Replicates data from remote source to a local table in Datasphere. "
-                                   "Supports full load and delta (incremental) modes.",
+                        "tooltip": "Replicates a full snapshot from a remote source to a local table in Datasphere.",
                         "color": "#E76500",
                         "shape": "rect",
                     },
-                    "data": {"mode": spec.get("replication_mode", "SCHEDULED"), "deltaColumn": spec.get("delta_column")},
+                    "data": {"mode": spec.get("replication_mode", "SNAPSHOT")},
                 },
                 {
                     "id": "local_table",
@@ -853,4 +851,3 @@ def _ds_assoc_dimension(a: dict) -> dict:
         "associationName": a.get("name", "Association"),
         "cardinality": a.get("cardinality", "n..1"),
     }
-

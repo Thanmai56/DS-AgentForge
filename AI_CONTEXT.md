@@ -412,6 +412,12 @@ Major components:
 - lineage page
 - export page
 
+### Current plan-driven modeling contract
+
+The plan visualizer prepares one L1 wrapper Relational Dataset per source. Projection and filter are editable wrapper settings, not separate view entities. New row-level formulas belong on the L3 fact node as individually named `calculated_fields`, each with its own formula and output column. The LLM contract is defined in `backend/app/agent/prompts/planner_system.md`, represented by the Pydantic plan models, and mapped to export entities in `frontend/src/features/plan/planExport.ts`.
+
+Legacy plans may still use the single `details.formula` property. Consumers should preserve that form for compatibility while preferring `calculated_fields` for multiple calculations. CSN serialization and plan validation do not by themselves prove that an artifact imports, deploys, or returns rows in a Datasphere tenant; source binding and tenant-level verification remain necessary.
+
 `api/client.ts` wraps backend REST APIs.
 
 Vite proxies `/api` to port 8000 and `/ws` to the backend WebSocket endpoint.
@@ -579,4 +585,3 @@ Before adding major product features, stabilize the execution path:
 6. Make LangGraph checkpoint persistence durable.
 7. Verify source/plan/artifact approval and resume behavior end-to-end.
 8. Then continue feature implementation.
-

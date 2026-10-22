@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Database, ExternalLink, Layers, Table, X } from 'lucide-react';
+import { Columns3, Database, ExternalLink, Filter, Layers, Table, X } from 'lucide-react';
 import { LineageNodeData } from '../../components/lineage/DatasphereLineageView';
 import { PlanNode } from './types';
 
@@ -8,6 +8,7 @@ interface PlanComponentInspectorProps {
   node?: PlanNode;
   onClose: () => void;
   onEdit?: () => void;
+  onAddTransform?: (operation: 'projection' | 'filter') => void;
   onOpenLineage: () => void;
 }
 
@@ -16,6 +17,7 @@ export const PlanComponentInspector: React.FC<PlanComponentInspectorProps> = ({
   node,
   onClose,
   onEdit,
+  onAddTransform,
   onOpenLineage,
 }) => {
   const [activeTab, setActiveTab] = useState<'elements' | 'lineage'>('elements');
@@ -96,6 +98,26 @@ export const PlanComponentInspector: React.FC<PlanComponentInspectorProps> = ({
           </div>
           {node && (
             <div className="border-t border-slate-200 p-3">
+              {node.is_wrapper && onAddTransform && (
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAddTransform('projection')}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+                  >
+                    <Columns3 className="h-3.5 w-3.5" />
+                    Configure Projection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onAddTransform('filter')}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    Configure Filter
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={onEdit}

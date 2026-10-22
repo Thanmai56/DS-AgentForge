@@ -126,7 +126,6 @@ def build_replication_config(
     remote_object: str,
     space: str,
     replication_mode: str = "SCHEDULED",
-    delta_column: str | None = None,
     full_load_first: bool = True,
 ) -> dict[str, Any]:
     """Build replication configuration spec for remote tables."""
@@ -139,7 +138,6 @@ def build_replication_config(
         "remote_source": remote_source,
         "remote_object": remote_object,
         "replication_mode": replication_mode,
-        "delta_column": delta_column,
         "full_load_first": full_load_first,
         "confidence_score": 0.98,
     }

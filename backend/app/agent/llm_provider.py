@@ -189,6 +189,22 @@ DEFAULT_FIXTURE_PLAN: dict[str, Any] = {
                 "SUPPLIER",
                 "CREATIONDATE",
                 "FINAL_DELIVERY_DATE",
+                "Processing_Days",
+                "Total_Delivered_Order",
+            ],
+            "calculated_fields": [
+                {
+                    "name": "Processing_Days",
+                    "formula": "DAYS_BETWEEN(TO_DATE(CREATIONDATE), TO_DATE(FINAL_DELIVERY_DATE)) + 1",
+                    "label": "Processing days",
+                    "data_type": "cds.Integer",
+                },
+                {
+                    "name": "Total_Delivered_Order",
+                    "formula": "1",
+                    "label": "Delivered order count",
+                    "data_type": "cds.Integer",
+                },
             ],
             "details": {
                 "join_type": "inner",
@@ -202,25 +218,9 @@ DEFAULT_FIXTURE_PLAN: dict[str, Any] = {
             "layer": "L3",
         },
         {
-            "id": "CALC_PROCESSING_DAYS",
-            "operation": "calculated_column",
-            "inputs": ["F_PO_PROCESSING_TIME_APT"],
-            "columns": ["Processing_Days", "Total_Delivered_Order"],
-            "details": {
-                "join_type": "",
-                "on": [],
-                "condition": "",
-                "formula": "DAYS_BETWEEN(TO_DATE(CREATIONDATE), TO_DATE(FINAL_DELIVERY_DATE)) + 1",
-                "aggregation": "",
-            },
-            "reason": "Compute processing duration in days and base delivery counter.",
-            "is_existing": False,
-            "layer": "L3",
-        },
-        {
             "id": "AM_PO_APT",
             "operation": "analytic_model",
-            "inputs": ["CALC_PROCESSING_DAYS"],
+            "inputs": ["F_PO_PROCESSING_TIME_APT"],
             "columns": [
                 "PURCHASEORDER",
                 "SUPPLIER",

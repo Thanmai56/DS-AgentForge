@@ -3,7 +3,12 @@
 // Works for ANY arbitrary SAP Datasphere schemas, custom JSONs, or DDL tables.
 // Zero hardcoded table or column names.
 
-import { CompressedEntity, CompressedField } from './schemaCompressor';
+import {
+  CompressedEntity,
+  CompressedField,
+  isDeltaEntityName,
+  isDeltaReference,
+} from './schemaCompressor';
 
 export interface DynamicLineageNode {
   technicalName: string;
@@ -45,13 +50,21 @@ export function buildDynamicLineage(
     return { nodes: [], edges: [], warnings: [] };
   }
 
-  const sourceEntities = entities.map((entity) => ({
+  const sourceEntities = entities.filter((entity) => !isDeltaEntityName(entity.name)).map((entity) => ({
     ...entity,
+    sources: (entity.sources || []).filter((source) => !isDeltaEntityName(source)),
+    joins: entity.joins?.filter((join) =>
+      !isDeltaEntityName(join.leftSource) && !isDeltaEntityName(join.rightSource)
+      && !isDeltaReference(join.leftField) && !isDeltaReference(join.rightField),
+    ),
     fields: entity.fields.filter((field) => field.name.trim().toUpperCase() !== 'TEST'),
     calculatedFields: entity.calculatedFields?.filter(
       (field) => field.name.trim().toUpperCase() !== 'TEST',
     ),
   }));
+  if (sourceEntities.length === 0) {
+    return { nodes: [], edges: [], warnings: [] };
+  }
 
   // Check if input already includes intermediate views or analytic models
   const hasViews = sourceEntities.some((e) => e.kind === 'view' || e.kind === 'fact' || e.kind === 'analytic_model');

@@ -63,7 +63,25 @@ def sample_po_plan() -> Plan:
                 id="F_PO_PROCESSING_TIME_APT",
                 operation="join",
                 inputs=["ZIPOHDRAPT", "V_PO_FINAL_DELIVERY_APT"],
-                columns=["PURCHASEORDER", "CREATIONDATE", "FINAL_DELIVERY_DATE", "CALC_PROCESSING_DAYS"],
+                columns=[
+                    "PURCHASEORDER",
+                    "CREATIONDATE",
+                    "FINAL_DELIVERY_DATE",
+                    "Processing_Days",
+                    "Total_Delivered_Order",
+                ],
+                calculated_fields=[
+                    {
+                        "name": "Processing_Days",
+                        "formula": "DAYS_BETWEEN(CREATIONDATE, FINAL_DELIVERY_DATE) + 1",
+                        "data_type": "cds.Integer",
+                    },
+                    {
+                        "name": "Total_Delivered_Order",
+                        "formula": "1",
+                        "data_type": "cds.Integer",
+                    },
+                ],
                 details=NodeDetails(
                     join_type="inner",
                     on=[["PURCHASEORDER", "PURCHASEORDER"]],
@@ -82,7 +100,7 @@ def test_po_example_left_to_right_flow(sample_po_plan: Plan):
     """
     Clicking Accept on PO example builds:
     ZIPOHDRAPT & V_PO_FINAL_DELIVERY_APT -> Inner Join (PURCHASEORDER = PURCHASEORDER)
-    -> Calculation CALC_PROCESSING_DAYS -> Output F_PO_PROCESSING_TIME_APT.
+    -> One calculation operator per fact formula -> Output F_PO_PROCESSING_TIME_APT.
     """
     graphs = synthesize_view_graphs_from_plan(sample_po_plan)
     assert "F_PO_PROCESSING_TIME_APT" in graphs
@@ -108,8 +126,7 @@ def test_po_example_left_to_right_flow(sample_po_plan: Plan):
 
     # Calculation operator
     calc_nodes = [n for n in graph.nodes if n.node_type == NodeType.CALCULATION]
-    assert len(calc_nodes) >= 1
-    assert any("CALC_PROCESSING_DAYS" in n.name for n in calc_nodes)
+    assert {node.name for node in calc_nodes} == {"Processing_Days", "Total_Delivered_Order"}
 
     # Output node on right
     output_nodes = [n for n in graph.nodes if n.node_type == NodeType.OUTPUT]

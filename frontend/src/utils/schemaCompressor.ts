@@ -36,6 +36,38 @@ export interface CompressedEntity {
 
 const isTestPlaceholder = (name: string) => name.trim().toUpperCase() === 'TEST';
 
+export const isDeltaEntityName = (name: string): boolean =>
+  /(?:^|[_-])DELTA$/i.test(name.trim().split('.').pop() || name.trim());
+
+export const isDeltaReference = (reference: string): boolean => {
+  const separator = reference.lastIndexOf('.');
+  return isDeltaEntityName(separator >= 0 ? reference.slice(0, separator) : reference);
+};
+
+function declaredDeltaEntities(definitions: Record<string, any>): Set<string> {
+  const deltaNames = new Set<string>();
+  Object.values(definitions).forEach((value) => {
+    if (!value || typeof value !== 'object') return;
+    const delta = value['@DataWarehouse.delta'];
+    const references = [
+      ...(Array.isArray(delta?.deltaFromEntities) ? delta.deltaFromEntities : []),
+      ...(typeof delta?.deltaFromEntities === 'string' ? [delta.deltaFromEntities] : []),
+      ...(Array.isArray(value['@DataWarehouse.delta.deltaFromEntities'])
+        ? value['@DataWarehouse.delta.deltaFromEntities']
+        : []),
+      ...(typeof value['@DataWarehouse.delta.deltaFromEntities'] === 'string'
+        ? [value['@DataWarehouse.delta.deltaFromEntities']]
+        : []),
+    ];
+    references.forEach((reference) => {
+      if (typeof reference === 'string') {
+        deltaNames.add(reference.split('.').pop()!.toLowerCase());
+      }
+    });
+  });
+  return deltaNames;
+}
+
 export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
   if (!rawInput) return [];
 
@@ -118,7 +150,8 @@ export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
     const recurseFrom = (node: any) => {
       if (!node || typeof node !== 'object') return;
       if (Array.isArray(node.ref)) {
-        sources.add(node.ref[0]);
+        const sourceName = String(node.ref[0] || '');
+        if (!isDeltaEntityName(sourceName)) sources.add(sourceName);
       }
       if (node.from) recurseFrom(node.from);
       if (Array.isArray(node.args)) {
@@ -133,8 +166,13 @@ export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
 
   // Case 1: CSN format with "definitions"
   if (data.definitions && typeof data.definitions === 'object') {
+    const deltaNames = declaredDeltaEntities(data.definitions);
     for (const [entName, entDef] of Object.entries(data.definitions)) {
       if (!entDef || typeof entDef !== 'object') continue;
+      if (
+        isDeltaEntityName(entName)
+        || deltaNames.has(entName.split('.').pop()!.toLowerCase())
+      ) continue;
       const def = entDef as any;
       const label = def['@EndUserText.label'] || def.label || entName;
       const fields = extractFields(def.elements);
@@ -165,6 +203,7 @@ export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
     for (const item of data) {
       if (!item || typeof item !== 'object') continue;
       const name = item.name || item.table_name || 'TABLE';
+      if (isDeltaEntityName(name)) continue;
       const label = item.business_name || item.label || name;
       const fields = extractFields(item.columns || item.elements || item.fields);
       results.push({
@@ -191,7 +230,10 @@ export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
   // Case 5: Map/Dictionary of tables (e.g. { "ORDERS": { "columns": [...] }, "CUSTOMERS": { ... } })
   if (typeof data === 'object' && !Array.isArray(data)) {
     const entries = Object.entries(data);
-    const tableEntries = entries.filter(([_, v]: [string, any]) => v && typeof v === 'object' && (v.columns || v.elements || v.fields));
+    const tableEntries = entries.filter(([name, value]: [string, any]) =>
+      !isDeltaEntityName(name) && value && typeof value === 'object'
+      && (value.columns || value.elements || value.fields),
+    );
     if (tableEntries.length > 0) {
       for (const [tName, tDef] of tableEntries) {
         const def = tDef as any;

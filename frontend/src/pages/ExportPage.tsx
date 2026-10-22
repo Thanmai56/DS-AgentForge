@@ -26,8 +26,9 @@ import { CompressedEntity } from '../utils/schemaCompressor';
 import { buildDynamicLineage } from '../utils/dynamicLineageBuilder';
 import { formulaToCsn } from '../core/csn/formulaConverter';
 import { mapSourceDataType } from '../core/csn/sourceDataType';
+import { csnSourceAlias, quoteCsnSqlSource, resolveCsnSourceName } from '../core/csn/sourceReference';
 import { Plan } from '../features/plan/types';
-import { buildPlanExportEntities } from '../features/plan/planExport';
+import { buildPlanExportEntities, selectGeneratedPlanEntities } from '../features/plan/planExport';
 import amReferenceExport from '../../../fixtures/reference/AM_PO_APT.json';
 import factReferenceExport from '../../../fixtures/reference/F_PO_PROCESSING_TIME_APT (1).json';
 
@@ -45,47 +46,60 @@ interface ExportFileItem {
   jsonObj: any;
 }
 
-const quoteSqlIdentifier = (identifier: string) =>
-  `"${identifier.replace(/"/g, '""')}"`;
-
-const buildSimpleViewSql = (entity: CompressedEntity, source: string): string => {
+const buildSimpleViewSql = (
+  entity: CompressedEntity,
+  source: string,
+  sourceEntities: CompressedEntity[],
+  sharedSourceSpace: string,
+): string => {
+  const resolvedSource = resolveCsnSourceName(source, sourceEntities, sharedSourceSpace);
   const columns = entity.fields.map((field) => {
     const calculatedField = entity.calculatedFields?.find((item) => item.name === field.name);
     return calculatedField?.formula
-      ? `${calculatedField.formula} AS ${quoteSqlIdentifier(field.name)}`
-      : quoteSqlIdentifier(field.name);
+      ? `${calculatedField.formula} AS "${field.name.replace(/"/g, '""')}"`
+      : `"${field.name.replace(/"/g, '""')}"`;
   });
   const filters = entity.filters || [];
   const groupBy = entity.groupBy || [];
 
   return [
     `SELECT ${columns.join(', ')}`,
-    `FROM ${quoteSqlIdentifier(source)}`,
+    `FROM ${quoteCsnSqlSource(resolvedSource)}`,
     ...(filters.length > 0 ? [`WHERE ${filters.join(' AND ')}`] : []),
     ...(groupBy.length > 0
-      ? [`GROUP BY ${groupBy.map(quoteSqlIdentifier).join(', ')}`]
+      ? [`GROUP BY ${groupBy.map((field) => `"${field.replace(/"/g, '""')}"`).join(', ')}`]
       : []),
   ].join('\r\n');
 };
 
-function buildCsnFromClause(entity: CompressedEntity): Record<string, unknown> {
+function buildCsnFromClause(
+  entity: CompressedEntity,
+  sourceEntities: CompressedEntity[],
+  sharedSourceSpace: string,
+): Record<string, unknown> {
   const sources = entity.sources || [];
   if (!sources.length) return {};
 
-  let from: Record<string, unknown> = { ref: [sources[0]], as: sources[0] };
+  const sourceReference = (source: string) =>
+    resolveCsnSourceName(source, sourceEntities, sharedSourceSpace);
+  const sourceAlias = csnSourceAlias;
+  let from: Record<string, unknown> = {
+    ref: [sourceReference(sources[0])],
+    as: sourceAlias(sources[0]),
+  };
   for (const rightSource of sources.slice(1)) {
     const join = entity.joins?.find((item) => item.rightSource === rightSource);
     const leftSource = join?.leftSource || sources[0];
     const on = join
       ? [
-          { ref: [leftSource, join.leftField] },
+          { ref: [sourceAlias(leftSource), join.leftField] },
           '=',
-          { ref: [rightSource, join.rightField] },
+          { ref: [sourceAlias(rightSource), join.rightField] },
         ]
       : undefined;
     from = {
       join: join?.joinType || 'inner',
-      args: [from, { ref: [rightSource], as: rightSource }],
+      args: [from, { ref: [sourceReference(rightSource)], as: sourceAlias(rightSource) }],
       ...(on ? { on } : {}),
     };
   }
@@ -113,8 +127,13 @@ export const ExportPage: React.FC = () => {
   });
   const sourceEntities = extractedEntities.length ? extractedEntities as CompressedEntity[] : storedSourceEntities;
   const [selectedFileId, setSelectedFileId] = useState<string>('');
+  const [sourcesSharedFromAnotherSpace, setSourcesSharedFromAnotherSpace] = useState(false);
+  const [sharedSourceSpace, setSharedSourceSpace] = useState('');
   const [copied, setCopied] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const sharedSourceSpaceIsMissing =
+    sourcesSharedFromAnotherSpace && !sharedSourceSpace.trim();
+  const sourceSpaceForExport = sourcesSharedFromAnotherSpace ? sharedSourceSpace : '';
 
   // Build the ordered CSN JSON files dynamically
   const exportFiles = useMemo<ExportFileItem[]>(() => {
@@ -124,7 +143,7 @@ export const ExportPage: React.FC = () => {
       : null;
 
     // Preserve the metadata-only export path when no accepted plan is available.
-    if ((planEntities && planEntities.length > 0) || sourceEntities.length > 0) {
+    if (activePlan || (planEntities && planEntities.length > 0) || sourceEntities.length > 0) {
       const lineage = planEntities
         ? null
         : buildDynamicLineage(sourceEntities, businessRequirement);
@@ -144,7 +163,11 @@ export const ExportPage: React.FC = () => {
           }))
         : sourceEntities);
 
-      return allEntities.map((ent) => {
+      const entitiesToExport = activePlan
+        ? selectGeneratedPlanEntities(activePlan, allEntities)
+        : allEntities;
+
+      return entitiesToExport.map((ent) => {
         let stepOrder = 1;
         let stepLabel = 'Step 1: Local Table';
         const planNode = activePlan?.nodes.find((node) => node.id === ent.name);
@@ -159,16 +182,19 @@ export const ExportPage: React.FC = () => {
                   : 'L1'
           );
           stepOrder = Number(layer.slice(1)) + 1;
-          stepLabel = `Step ${stepOrder}: ${layer} ${planNode.operation.replace('_', ' ')}`;
+          const artifactType = ent.kind === 'view'
+            ? 'Relational Dataset'
+            : planNode.operation.replace('_', ' ');
+          stepLabel = `Step ${stepOrder}: ${layer} ${artifactType}`;
         } else if (ent.kind === 'view') {
           stepOrder = 2;
-          stepLabel = 'Step 2: Dimension/Intermediate View';
+          stepLabel = 'Step 2: Relational Dataset';
         } else if (ent.kind === 'fact') {
           stepOrder = 3;
-          stepLabel = 'Step 3: Fact View';
+          stepLabel = 'Step 3: Fact';
         } else if (ent.kind === 'analytic_model') {
           stepOrder = 4;
-          stepLabel = 'Step 4: SAC Analytic Model';
+          stepLabel = 'Step 4: Analytic Model';
         }
 
         // Build standard CDS CSN 2.0 definition dynamically
@@ -203,14 +229,14 @@ export const ExportPage: React.FC = () => {
           const fromSource = ent.sources[0];
           entityDef.query = {
             SELECT: {
-              from: buildCsnFromClause(ent),
+              from: buildCsnFromClause(ent, sourceEntities, sourceSpaceForExport),
               columns: ent.fields.map((f) => {
                 const calculatedField = ent.calculatedFields?.find(
                   (field: { name: string }) => field.name === f.name,
                 );
                 return calculatedField?.formula
                   ? { as: f.name, xpr: formulaToCsn(calculatedField.formula) }
-                  : { ref: [f.source || fromSource, f.name] };
+                  : { ref: [csnSourceAlias(f.source || fromSource), f.name] };
               }),
             },
           };
@@ -257,7 +283,22 @@ export const ExportPage: React.FC = () => {
         if (ent.kind === 'view') {
           entityDef['@DataWarehouse.consumption.external'] = false;
           if (ent.sources?.length === 1 && !ent.joins?.length && ent.fields.length > 0) {
-            entityDef['@DataWarehouse.sqlEditor.query'] = buildSimpleViewSql(ent, ent.sources[0]);
+            const sourceIsShared = Boolean(
+              sourceSpaceForExport.trim()
+              && resolveCsnSourceName(
+                ent.sources[0],
+                sourceEntities,
+                sourceSpaceForExport,
+              ) !== ent.sources[0],
+            );
+            if (!sourceIsShared) {
+              entityDef['@DataWarehouse.sqlEditor.query'] = buildSimpleViewSql(
+                ent,
+                ent.sources[0],
+                sourceEntities,
+                sourceSpaceForExport,
+              );
+            }
           }
         }
 
@@ -368,7 +409,7 @@ export const ExportPage: React.FC = () => {
         jsonObj: amViewObj,
       },
     ];
-  }, [activePlan, businessRequirement, sourceEntities]);
+  }, [activePlan, businessRequirement, sourceEntities, sourceSpaceForExport]);
 
   // Set default selected file if none or invalid
   const currentFile = useMemo(() => {
@@ -449,13 +490,57 @@ export const ExportPage: React.FC = () => {
         {/* Big Download ZIP Bundle Button */}
         <button
           onClick={handleDownloadAllZip}
-          disabled={downloadingZip || exportFiles.length === 0}
+          disabled={downloadingZip || exportFiles.length === 0 || sharedSourceSpaceIsMissing}
           className="flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-[#0070F2] hover:bg-[#0058C6] text-white font-semibold text-xs shadow-sm transition-all cursor-pointer"
         >
           <FolderArchive className="w-4 h-4" />
           <span>{downloadingZip ? 'Packaging ZIP...' : 'Download All as ZIP Bundle'}</span>
         </button>
       </div>
+
+      <section className="rounded-xl border border-[#E2E8F0] bg-white p-4 space-y-3">
+        <label className="flex items-start gap-3 text-sm text-[#1D2D3E]">
+          <input
+            type="checkbox"
+            checked={sourcesSharedFromAnotherSpace}
+            onChange={(event) => setSourcesSharedFromAnotherSpace(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[#0070F2]"
+          />
+          <span>
+            <span className="block font-semibold">Sources are shared from another space</span>
+            <span className="mt-1 block text-xs text-[#64748B]">
+              Enable this to qualify source references in generated wrappers. Leave it unchecked
+              to keep the current unqualified references.
+            </span>
+          </span>
+        </label>
+        {sourcesSharedFromAnotherSpace && (
+          <div className="ml-7 max-w-md space-y-1.5">
+            <label htmlFor="shared-source-space" className="block text-xs font-semibold text-[#334155]">
+              Source space name
+            </label>
+            <input
+              id="shared-source-space"
+              type="text"
+              value={sharedSourceSpace}
+              onChange={(event) => setSharedSourceSpace(event.target.value)}
+              placeholder="e.g. RAD_S3P"
+              aria-invalid={sharedSourceSpaceIsMissing}
+              className="w-full rounded-lg border border-[#CBD5E1] px-3 py-2 text-sm outline-none focus:border-[#0070F2]"
+            />
+            {sharedSourceSpaceIsMissing && (
+              <p className="text-xs text-[#B42318]" role="alert">
+                Enter the source space name before downloading the generated JSON.
+              </p>
+            )}
+            {!sharedSourceSpaceIsMissing && (
+              <p className="text-xs text-[#64748B]">
+                The selected JSON preview updates as you type.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Main Container */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -530,6 +615,7 @@ export const ExportPage: React.FC = () => {
                           e.stopPropagation();
                           handleDownloadSingle(file);
                         }}
+                        disabled={sharedSourceSpaceIsMissing}
                         className="p-1.5 rounded hover:bg-white text-[#64748B] hover:text-[#0070F2] transition-colors"
                         title="Download JSON"
                       >

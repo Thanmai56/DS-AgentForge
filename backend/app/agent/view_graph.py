@@ -682,9 +682,9 @@ def build_view_graph_for_proposed_node(
 def synthesize_view_graphs_from_plan(plan: Any, metadata: Any = None) -> dict[str, ViewGraph]:
     """
     Synthesizes view graphs for all proposed views in the accepted Plan.
-    Specifically guarantees support for the PO Processing Time example:
-      ZIPOHDRAPT and V_PO_FINAL_DELIVERY_APT -> Inner Join (PURCHASEORDER = PURCHASEORDER)
-      -> Calculation CALC_PROCESSING_DAYS -> Output F_PO_PROCESSING_TIME_APT.
+    Specifically supports the PO Processing Time example:
+      ZIPOHDRAPT and V_PO_FINAL_DELIVERY_APT -> Inner Join
+      -> one calculation operator per named fact formula -> fact output.
     """
     graphs: dict[str, ViewGraph] = {}
 
@@ -762,16 +762,28 @@ def synthesize_view_graphs_from_plan(plan: Any, metadata: Any = None) -> dict[st
                 "on": [["PURCHASEORDER", "PURCHASEORDER"]] if "APT" in p_id else [],
             }
 
-        # Calculations
+        # Keep every explicitly named calculation as a separate lineage operator.
+        raw_calculated_fields = getattr(p_node, "calculated_fields", None)
+        if raw_calculated_fields is None and isinstance(p_node, dict):
+            raw_calculated_fields = p_node.get("calculated_fields", [])
         calcs_list: list[dict[str, Any]] = []
+        for calc in raw_calculated_fields or []:
+            calc_name = calc.get("name", "") if isinstance(calc, dict) else getattr(calc, "name", "")
+            calc_formula = calc.get("formula", "") if isinstance(calc, dict) else getattr(calc, "formula", "")
+            if calc_name and calc_formula:
+                calcs_list.append({
+                    "name": calc_name,
+                    "formula": calc_formula,
+                    "data_type": "Decimal",
+                })
         formula = getattr(p_details, "formula", "") if p_details else ""
-        if formula:
+        if formula and not calcs_list:
             calcs_list.append({
                 "name": "CALC_PROCESSING_DAYS" if "DAYS" in formula or "APT" in p_id else "CALC_FIELD",
                 "formula": formula,
                 "data_type": "Integer" if "DAYS" in formula else "Decimal",
             })
-        elif "APT" in p_id:
+        elif not calcs_list and "APT" in p_id:
             calcs_list.append({
                 "name": "CALC_PROCESSING_DAYS",
                 "formula": "DAYS_BETWEEN(CREATIONDATE, FINAL_DELIVERY_DATE) + 1",

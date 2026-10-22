@@ -54,7 +54,9 @@ def test_load_planner_system_prompt():
     """Verify that planner_system.md loads properly."""
     prompt = load_planner_system_prompt()
     assert "SAP Datasphere modeling architect" in prompt
-    assert "Allowed operations only:" in prompt
+    assert "Allowed operations:" in prompt
+    assert '"calculated_fields":[{"name":"","formula":"","label":"","data_type":""}]' in prompt
+    assert "Do not collapse multiple requested formulas" in prompt
     assert "Output ONLY valid JSON in this format:" in prompt
 
 
@@ -72,11 +74,36 @@ def test_generate_plan_success(sample_metadata_and_profile):
     )
 
     assert plan is not None
-    assert len(plan.nodes) == 4
+    assert len(plan.nodes) == 3
     assert plan.nodes[0].id == "V_PO_FINAL_DELIVERY_APT"
     assert plan.nodes[0].is_existing is True
+    fact = next(node for node in plan.nodes if node.id == "F_PO_PROCESSING_TIME_APT")
+    assert [field.name for field in fact.calculated_fields] == [
+        "Processing_Days",
+        "Total_Delivered_Order",
+    ]
+    assert all(field.name in fact.columns for field in fact.calculated_fields)
     assert plan.measures[0].name == "Total_Delivered_Order"
     assert len(fake_llm.call_history) == 1
+
+
+def test_planner_checker_retains_all_named_calculated_columns(sample_metadata_and_profile):
+    meta, profile = sample_metadata_and_profile
+    fake_llm = FakeLLMProvider()
+
+    plan = generate_plan(
+        requirement="Compute processing days and delivered order count in the fact.",
+        metadata=meta,
+        profile=profile,
+        provider=fake_llm,
+    )
+
+    fact = next(node for node in plan.nodes if node.id == "F_PO_PROCESSING_TIME_APT")
+    assert [(field.name, field.formula) for field in fact.calculated_fields] == [
+        ("Processing_Days", "DAYS_BETWEEN(TO_DATE(CREATIONDATE), TO_DATE(FINAL_DELIVERY_DATE)) + 1"),
+        ("Total_Delivered_Order", "1"),
+    ]
+    assert {"Processing_Days", "Total_Delivered_Order"}.issubset(set(fact.columns))
 
 
 def test_generate_plan_retry_on_invalid_json(sample_metadata_and_profile):

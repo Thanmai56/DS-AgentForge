@@ -11,6 +11,9 @@ interface EditStepPanelProps {
   node: PlanNode | null;
   onClose: () => void;
   onPlanUpdated: (updatedPlan: Plan, affectedNodes: string[]) => void;
+  availableColumns?: string[];
+  requiredColumns?: string[];
+  onManualStepUpdated?: (node: PlanNode) => void;
 }
 
 export const EditStepPanel: React.FC<EditStepPanelProps> = ({
@@ -18,6 +21,9 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
   node,
   onClose,
   onPlanUpdated,
+  availableColumns = [],
+  requiredColumns = [],
+  onManualStepUpdated,
 }) => {
   if (!node) return null;
 
@@ -27,6 +33,7 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
   const [formula, setFormula] = useState(node.details?.formula || '');
   const [reason, setReason] = useState(node.reason || '');
   const [joinKeys, setJoinKeys] = useState<string[][]>(node.details?.on || []);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(node.columns);
 
   // Natural language revision state
   const [instruction, setInstruction] = useState('');
@@ -39,6 +46,7 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
     setFormula(node.details?.formula || '');
     setReason(node.reason || '');
     setJoinKeys(node.details?.on || []);
+    setSelectedColumns(node.columns);
     setErrorMsg(null);
   }, [node]);
 
@@ -57,7 +65,30 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
         formula: formula.trim(),
         on: joinKeys,
       },
+      columns: selectedColumns,
     };
+
+    if ((node.operation.toLowerCase() === 'filter' || (node.is_wrapper && node.is_filter_enabled)) && !condition.trim()) {
+      setErrorMsg('Enter a filter condition before applying this step.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (
+      (node.operation.toLowerCase() === 'projection' && !node.is_wrapper)
+      || (node.is_wrapper && node.is_projection_enabled)
+    ) {
+      if (selectedColumns.length === 0) {
+        setErrorMsg('Select at least one column for this projection.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    if ((node.is_manual || node.is_wrapper) && onManualStepUpdated) {
+      onManualStepUpdated(editedNode);
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const res = await revisePlanApi(planId, { editedNode });
@@ -153,16 +184,56 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
         )}
 
         {/* Filter Condition (if filter) */}
-        {node.operation.toLowerCase() === 'filter' && (
+        {(node.operation.toLowerCase() === 'filter' || (node.is_wrapper && node.is_filter_enabled)) && (
           <div className="space-y-1">
             <label className="font-semibold text-slate-700 uppercase text-[10px] tracking-wider">Filter Condition</label>
-            <input
-              type="text"
+            <textarea
+              rows={3}
               value={condition}
               onChange={(e) => setCondition(e.target.value)}
               placeholder="e.g. GOODSMOVEMENTTYPE = '101'"
-              className="w-full p-2 border border-slate-300 rounded-lg font-mono text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className="w-full resize-y p-2 border border-slate-300 rounded-lg font-mono text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
             />
+            <p className="text-[10px] text-slate-500">Use a valid SQL condition. The filter will be exported as the view WHERE clause.</p>
+          </div>
+        )}
+
+        {((node.operation.toLowerCase() === 'projection' && !node.is_wrapper)
+          || (node.is_wrapper && node.is_projection_enabled)) && (
+          <div className="space-y-2">
+            <div>
+              <label className="font-semibold text-slate-700 uppercase text-[10px] tracking-wider">Columns to pass through</label>
+              <p className="mt-1 text-[10px] text-slate-500">Required downstream columns are locked and cannot be removed.</p>
+            </div>
+            <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+              {availableColumns.map((column) => {
+                const isRequired = requiredColumns.includes(column);
+                const isSelected = selectedColumns.includes(column);
+                return (
+                  <label key={column} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={isSelected || isRequired}
+                      disabled={isRequired}
+                      onChange={(event) => setSelectedColumns((current) =>
+                        event.target.checked
+                          ? [...current, column]
+                          : current.filter((item) => item !== column),
+                      )}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-800">{column}</span>
+                    {isRequired && (
+                      <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+                        Required
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+              {availableColumns.length === 0 && (
+                <p className="p-3 text-[11px] text-slate-500">No source column metadata is available for this step.</p>
+              )}
+            </div>
           </div>
         )}
 

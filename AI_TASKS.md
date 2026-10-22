@@ -19,6 +19,7 @@
 - [ ] Ensure background tasks survive API process restarts (production worker/queue).
 
 ## P1 — Product functionality
+- [x] Preserve every requested fact-level formula as a distinct calculated output column; keep source projection/filter options inside one wrapper per source.
 - [ ] Verify source confirmation UI writes selected tables back to the run.
 - [ ] Verify plan confirmation UI updates the graph and persisted run state.
 - [ ] Verify artifact approval triggers export and exposes generated artifacts.

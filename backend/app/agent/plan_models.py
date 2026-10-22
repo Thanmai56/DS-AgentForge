@@ -10,6 +10,7 @@ Matches the plan format specified in planner_system.md:
       "operation": "",
       "inputs": [""],
       "columns": [""],
+      "calculated_fields": [{"name": "", "formula": "", "label": "", "data_type": ""}],
       "details": {
         "join_type": "",
         "on": [["LEFT_COL", "RIGHT_COL"]],
@@ -57,6 +58,16 @@ class NodeDetails(BaseModel):
     aggregation: str = ""
 
 
+class CalculatedFieldSpec(BaseModel):
+    """A named output column calculated from an expression."""
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    formula: str
+    label: str = ""
+    data_type: str = ""
+
+
 class PlanNode(BaseModel):
     """
     An ordered step or view in the modeling pipeline.
@@ -68,6 +79,7 @@ class PlanNode(BaseModel):
     operation: str
     inputs: list[str] = Field(default_factory=list)
     columns: list[str] = Field(default_factory=list)
+    calculated_fields: list[CalculatedFieldSpec] = Field(default_factory=list)
     details: NodeDetails = Field(default_factory=NodeDetails)
     reason: str = ""
     is_existing: bool = False
