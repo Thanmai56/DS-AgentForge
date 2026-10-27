@@ -223,7 +223,7 @@ def call_llm(
         Parsed and schema-validated dict
 
     Raises:
-        ValueError: If output fails schema validation after 1 retry
+        RuntimeError: If the selected model fails or returns invalid output.
     """
     import jsonschema
     from app.agent.json_compressor import compress_for_llm, compute_compression_stats
@@ -285,8 +285,9 @@ def call_llm(
         logger.error("LLM %s failed: %s", call_type, exc)
 
     _write_audit(run_id, call_type, prompt_hash, model, cost, "failed", error)
-    # Return sentinel that signals human review needed
-    return {"_llm_error": error, "_needs_human_review": True}
+    raise RuntimeError(
+        f"LLM call failed for selected model '{model}' and no fallback is permitted: {error}"
+    )
 
 
 def _write_audit(

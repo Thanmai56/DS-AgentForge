@@ -5,7 +5,7 @@ import {
   isDeltaReference,
 } from '../../utils/schemaCompressor';
 import { preparePlanPipeline } from './planPipeline';
-import { Plan, PlanNode } from './types';
+import { getNodeConditions, getNodeFormulas, Plan, PlanNode } from './types';
 
 const validLayers = ['L0', 'L1', 'L2', 'L3', 'L4'];
 
@@ -20,7 +20,12 @@ function nodeLayer(node: PlanNode): string {
 }
 
 function cleanColumnName(reference: string): string {
-  return reference.split('.').pop() || reference;
+  const parts = reference.trim().split(/\s+/);
+  const aliasIndex = parts.findIndex((part) => part.toUpperCase() === 'AS');
+  if (aliasIndex >= 0 && parts[aliasIndex + 1]) {
+    return parts[aliasIndex + 1].replace(/^["']|["']$/g, '');
+  }
+  return (parts[0].split('.').pop() || parts[0]).replace(/^["']|["']$/g, '');
 }
 
 export function buildPlanExportEntities(
@@ -96,7 +101,8 @@ export function buildPlanExportEntities(
     });
 
     const calculatedFieldSpecs = [...(node.calculated_fields || [])];
-    if (node.details?.formula) {
+    const nodeFormulas = getNodeFormulas(node);
+    if (nodeFormulas.length) {
       const legacyCalculatedName =
         plan.measures.find((measure) => measure.aggregation.toUpperCase() === 'FORMULA')?.name
         || node.columns.find((column) => !upstreamFields.has(cleanColumnName(column)));
@@ -106,7 +112,7 @@ export function buildPlanExportEntities(
       ) {
         calculatedFieldSpecs.push({
           name: cleanColumnName(legacyCalculatedName),
-          formula: node.details.formula,
+          formula: nodeFormulas.join(';\n'),
         });
       }
     }
@@ -127,7 +133,7 @@ export function buildPlanExportEntities(
             ? node.columns.find((column) => cleanColumnName(column) === name)!.split('.')[0]
             : sourceInput && planNodesById.has(sourceInput)
               ? sourceInput
-              : upstreamField.source || sourceInput,
+              : sourceInput || upstreamField.source,
           semantic_role: measure ? 'measure' : upstreamField.semantic_role,
           aggregation: measure?.aggregation || upstreamField.aggregation,
         };
@@ -188,7 +194,7 @@ export function buildPlanExportEntities(
       sources: node.inputs.filter((input) => !isDeltaEntityName(input)),
       joins,
       calculatedFields,
-      filters: node.details?.condition ? [node.details.condition] : [],
+      filters: getNodeConditions(node),
       groupBy: kind === 'analytic_model' ? [...normalizedPlan.dimensions] : [],
     };
     result.push(output);

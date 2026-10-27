@@ -13,7 +13,7 @@ import {
   Send,
   Terminal
 } from 'lucide-react';
-import { Plan, PlanNode } from './types';
+import { getNodeConditions, getNodeFormulas, Plan, PlanNode } from './types';
 import { PlanLanesCanvas } from './PlanLanesCanvas';
 import { EditStepPanel } from './EditStepPanel';
 import { SummaryPanel } from './SummaryPanel';
@@ -93,14 +93,23 @@ function toInspectorEntity(
     label: field.label || field.name,
     formula: field.formula,
   }))];
-  const formula = node.details?.formula;
-  if (formula && !calculatedFields.length) {
+  const formulas = getNodeFormulas(node);
+  if (formulas.length && !calculatedFields.length) {
     calculatedFields.push({
       name: node.columns.find((column) => !sourceFields.has(column)) || node.id,
       label: node.id,
-      formula,
+      formula: formulas[0],
     });
   }
+  formulas.forEach((formulaValue, index) => {
+    if (!calculatedFields.some((field) => field.formula === formulaValue)) {
+      calculatedFields.push({
+        name: `${node.id}_FORMULA_${index + 1}`,
+        label: `Formula ${index + 1}`,
+        formula: formulaValue,
+      });
+    }
+  });
   const kind = node.layer === 'L4' || node.operation === 'analytic_model'
     ? 'analytic_model'
     : node.layer === 'L3' || node.operation === 'join'
@@ -116,6 +125,8 @@ function toInspectorEntity(
     sources: node.inputs,
     joins,
     calculatedFields,
+    filters: getNodeConditions(node),
+    groupBy: node.details?.group_by || [],
     description: node.reason,
     onSelectNode: () => undefined,
   };

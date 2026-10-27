@@ -61,30 +61,10 @@ async def parse_requirement_node(state: RunState) -> dict:
     )
 
     if result.get("_needs_human_review"):
-        logger.warning("LLM parse required human review or failed; synthesizing from requirement and metadata.")
-        # Synthesize fallback parsed requirement from human metadata or text
-        measures = []
-        dimensions = []
-        for t in tables_meta:
-            for c in t.get("columns", []):
-                if c.get("semantic_role") == "measure":
-                    measures.append(c["name"])
-                else:
-                    dimensions.append(c["name"])
-
-        if not measures:
-            measures = ["NET_AMOUNT", "QUANTITY", "TOTAL_VALUE"]
-        if not dimensions:
-            dimensions = ["CUSTOMER_ID", "ORDER_DATE", "COUNTRY"]
-
-        result = {
-            "measures": measures[:6],
-            "dimensions": dimensions[:8],
-            "time_grain": "month",
-            "filters": ["STATUS != 'CANCELLED'"],
-            "target": "SAC",
-            "notes": f"Generated from human metadata. Prompt: {state['requirement_text'][:120]}",
-        }
+        raise RuntimeError(
+            f"LLM requirement parsing failed and no fallback is permitted: "
+            f"{result.get('_llm_error', 'unknown LLM error')}"
+        )
 
     return {
         "current_state": "SELECT_SOURCES",
@@ -212,7 +192,7 @@ async def detect_associations_node(state: RunState) -> dict:
         connection_id=state["connection_id"],
     )
 
-    # LLM confirmation for each candidate (or heuristic confirmation)
+    # LLM confirmation for each candidate
     confirmed = []
     for cand in candidates:
         evidence = {
@@ -228,21 +208,12 @@ async def detect_associations_node(state: RunState) -> dict:
             compress_json(evidence),
             run_id=state["run_id"],
         )
-        if not llm_result.get("_needs_human_review"):
-            cand.update({
-                "confirmed": llm_result.get("confirm", False),
-                "cardinality": llm_result.get("cardinality"),
-                "business_verb": llm_result.get("business_verb"),
-                "confidence": llm_result.get("confidence", 0.5),
-            })
-        else:
-            # Heuristic confirmation: if orphan ratio is low or columns match
-            cand.update({
-                "confirmed": True,
-                "cardinality": "n..1",
-                "business_verb": "references",
-                "confidence": 0.85,
-            })
+        cand.update({
+            "confirmed": llm_result.get("confirm", False),
+            "cardinality": llm_result.get("cardinality"),
+            "business_verb": llm_result.get("business_verb"),
+            "confidence": llm_result.get("confidence", 0.5),
+        })
         confirmed.append(cand)
 
     return {
@@ -302,31 +273,11 @@ Return JSON with:
 }}
 """
     result = call_llm("build_view_spec", plan_prompt, run_id=state["run_id"])
-    if result.get("_needs_human_review"):
-        logger.warning("plan_view_chain LLM returned review; using synthesized Datasphere hierarchy plan.")
-        tbls = state["candidate_tables"] or ["SOURCE_DATA"]
-        fact_tbl = tbls[0]
-        dim_tbls = tbls[1:] if len(tbls) > 1 else []
-        plan = {
-            "layers": {
-                "L1": [f"V_STG_{t}" for t in tbls],
-                "L2": [f"V_{fact_tbl}_CORE"],
-                "L3": [f"E_{d}" for d in dim_tbls],
-                "L4": [f"AM_{fact_tbl}_ANALYTIC_MODEL"],
-            },
-            "rationale": f"Generated complete Datasphere drilldown hierarchy for {len(tbls)} source tables with Projections, Filters, and Associations.",
-            "dag": (
-                [{"from": f"V_STG_{t}", "to": f"V_{fact_tbl}_CORE"} for t in tbls] +
-                [{"from": f"V_{fact_tbl}_CORE", "to": f"AM_{fact_tbl}_ANALYTIC_MODEL"}] +
-                [{"from": f"E_{d}", "to": f"AM_{fact_tbl}_ANALYTIC_MODEL"} for d in dim_tbls]
-            ),
-        }
-    else:
-        plan = {
-            "layers": result.get("layers", {}),
-            "rationale": result.get("rationale", ""),
-            "dag": result.get("dag", []),
-        }
+    plan = {
+        "layers": result.get("layers", {}),
+        "rationale": result.get("rationale", ""),
+        "dag": result.get("dag", []),
+    }
 
     await _broadcast(state["run_id"], "AWAITING_PLAN_CONFIRM", {"model_plan": plan, "plan": plan})
     return {"current_state": "AWAITING_PLAN_CONFIRM", "view_chain_plan": plan}
@@ -433,9 +384,6 @@ Return ONLY the complete ViewSpec JSON per §7.1 schema.
 """
 
     result = call_llm("build_view_spec", prompt, run_id=state["run_id"])
-    if result.get("_needs_human_review"):
-        logger.error("build_view_spec failed for %s: %s", view_name, result.get("_llm_error"))
-        return None
     return result
 
 

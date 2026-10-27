@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Check, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
-import { PlanNode, Plan } from './types';
+import { getNodeConditions, getNodeFormulas, PlanNode, Plan } from './types';
 import { revisePlanApi } from './planApi';
 
 interface EditStepPanelProps {
@@ -29,8 +29,8 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
 
   // Local state for direct editing
   const [joinType, setJoinType] = useState(node.details?.join_type || 'inner');
-  const [condition, setCondition] = useState(node.details?.condition || '');
-  const [formula, setFormula] = useState(node.details?.formula || '');
+  const [condition, setCondition] = useState(getNodeConditions(node).join(' AND '));
+  const [formula, setFormula] = useState(getNodeFormulas(node)[0] || '');
   const [reason, setReason] = useState(node.reason || '');
   const [joinKeys, setJoinKeys] = useState<string[][]>(node.details?.on || []);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(node.columns);
@@ -42,8 +42,8 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
 
   useEffect(() => {
     setJoinType(node.details?.join_type || 'inner');
-    setCondition(node.details?.condition || '');
-    setFormula(node.details?.formula || '');
+    setCondition(getNodeConditions(node).join(' AND '));
+    setFormula(getNodeFormulas(node)[0] || '');
     setReason(node.reason || '');
     setJoinKeys(node.details?.on || []);
     setSelectedColumns(node.columns);
@@ -62,7 +62,10 @@ export const EditStepPanel: React.FC<EditStepPanelProps> = ({
         ...node.details,
         join_type: node.operation.toLowerCase() === 'join' ? joinType : node.details?.join_type,
         condition: condition.trim(),
+        conditions: condition.trim() ? [condition.trim()] : [],
+        filters: condition.trim() ? [condition.trim()] : [],
         formula: formula.trim(),
+        formulas: formula.trim() ? [formula.trim()] : [],
         on: joinKeys,
       },
       columns: selectedColumns,

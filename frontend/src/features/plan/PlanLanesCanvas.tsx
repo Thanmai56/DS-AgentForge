@@ -41,6 +41,13 @@ const LANES: LaneConfig[] = [
     headerBg: 'bg-amber-50 text-amber-900 border-amber-200',
   },
   {
+    id: 'L2',
+    title: 'Core Transformations',
+    subtitle: 'Filters, projections & intermediate logic',
+    icon: Layers,
+    headerBg: 'bg-cyan-50 text-cyan-900 border-cyan-200',
+  },
+  {
     id: 'L3',
     title: 'Graphical Views',
     subtitle: 'Joins, calculations & KPIs',
@@ -67,6 +74,7 @@ export const PlanLanesCanvas: React.FC<PlanLanesCanvasProps> = ({
   const laneSteps = useMemo(() => {
     const grouped: Record<string, Array<Extract<PlanGraphNodeData, { kind: 'step' }>>> = {
       L1: [],
+      L2: [],
       L3: [],
       L4: [],
     };
@@ -141,6 +149,8 @@ export const PlanLanesCanvas: React.FC<PlanLanesCanvasProps> = ({
                       key={step.planNode.id}
                       node={step.planNode}
                       stepNumber={step.stepNumber || currentStepNumber}
+                      measures={plan.measures}
+                      dimensions={plan.dimensions}
                       isSelected={selectedNode?.id === step.planNode.id}
                       onSelect={onSelectNode}
                     />

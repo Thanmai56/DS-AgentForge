@@ -20,6 +20,8 @@ import { PlanNode } from './types';
 interface StepCardProps {
   node: PlanNode;
   stepNumber: number;
+  measures?: Array<{ name: string; aggregation: string; column: string }>;
+  dimensions?: string[];
   isSelected?: boolean;
   onSelect: (node: PlanNode) => void;
 }
@@ -27,6 +29,8 @@ interface StepCardProps {
 export const StepCard: React.FC<StepCardProps> = ({
   node,
   stepNumber,
+  measures = [],
+  dimensions = [],
   isSelected = false,
   onSelect,
 }) => {
@@ -112,6 +116,16 @@ export const StepCard: React.FC<StepCardProps> = ({
 
   const config = getOpConfig(node.operation);
   const OpIcon = config.icon;
+  const conditions = [
+    ...(node.details?.condition ? [node.details.condition] : []),
+    ...(node.details?.conditions || []),
+    ...(node.details?.filters || []),
+  ].filter((value, index, values) => value && values.indexOf(value) === index);
+  const formulas = [
+    ...(node.details?.formula ? [node.details.formula] : []),
+    ...(node.details?.formulas || []),
+  ].filter((value, index, values) => value && values.indexOf(value) === index);
+  const nodeMeasures = node.operation.toLowerCase() === 'analytic_model' ? measures : [];
 
   // Natural language sentence explaining join behavior
   const getRowsKeptSentence = (joinType: string) => {
@@ -219,14 +233,18 @@ export const StepCard: React.FC<StepCardProps> = ({
       )}
 
       {/* Filter condition callout */}
-      {node.details?.condition && (
-        <div className="mt-2 p-1.5 rounded bg-amber-50 border border-amber-100 font-mono text-[11px] text-amber-900 truncate">
-          WHERE {node.details.condition}
+      {conditions.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {conditions.map((condition) => (
+            <div key={condition} className="rounded bg-amber-50 border border-amber-100 p-1.5 font-mono text-[11px] text-amber-900">
+              WHERE {condition}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Calculation formula callout */}
-      {(node.calculated_fields?.length || node.details?.formula) && (
+      {(node.calculated_fields?.length || formulas.length) && (
         <div className="mt-2 space-y-1">
           {node.calculated_fields?.map((field) => (
             <div
@@ -236,9 +254,25 @@ export const StepCard: React.FC<StepCardProps> = ({
               <span className="font-bold">{field.name} = </span>{field.formula}
             </div>
           ))}
-          {!node.calculated_fields?.length && node.details?.formula && (
-            <div className="rounded border border-emerald-100 bg-emerald-50 p-1.5 font-mono text-[11px] text-emerald-900">
-              = {node.details.formula}
+          {formulas.map((formula) => (
+            <div key={formula} className="rounded border border-emerald-100 bg-emerald-50 p-1.5 font-mono text-[11px] text-emerald-900">
+              = {formula}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {nodeMeasures.length > 0 && (
+        <div className="mt-2 rounded border border-teal-100 bg-teal-50 p-2 text-[11px] text-teal-900">
+          <div className="mb-1 font-semibold uppercase tracking-wide">Measures</div>
+          {nodeMeasures.map((measure) => (
+            <div key={`${measure.name}-${measure.column}`} className="font-mono">
+              {measure.name} = {measure.aggregation}({measure.column})
+            </div>
+          ))}
+          {dimensions.length > 0 && (
+            <div className="mt-1 break-words">
+              <span className="font-semibold">Dimensions: </span>{dimensions.join(', ')}
             </div>
           )}
         </div>

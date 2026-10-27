@@ -25,8 +25,18 @@ import { useStore } from '../store/useStore';
 import { CompressedEntity } from '../utils/schemaCompressor';
 import { buildDynamicLineage } from '../utils/dynamicLineageBuilder';
 import { formulaToCsn } from '../core/csn/formulaConverter';
+import {
+  buildFactLayerMetadata,
+  buildFactQuery,
+  type FactQueryColumn,
+} from '../core/csn/templates.experimental';
 import { mapSourceDataType } from '../core/csn/sourceDataType';
-import { csnSourceAlias, quoteCsnSqlSource, resolveCsnSourceName } from '../core/csn/sourceReference';
+import {
+  csnSourceAlias,
+  quoteCsnSqlSource,
+  resolveCsnFormulaReferences,
+  resolveCsnSourceName,
+} from '../core/csn/sourceReference';
 import { Plan } from '../features/plan/types';
 import { buildPlanExportEntities, selectGeneratedPlanEntities } from '../features/plan/planExport';
 import amReferenceExport from '../../../fixtures/reference/AM_PO_APT.json';
@@ -77,33 +87,101 @@ function buildCsnFromClause(
   sourceEntities: CompressedEntity[],
   sharedSourceSpace: string,
 ): Record<string, unknown> {
-  const sources = entity.sources || [];
+  const sources = (entity.sources || []).map((source) =>
+    canonicalSourceName(source, entity.sources || []),
+  );
   if (!sources.length) return {};
 
   const sourceReference = (source: string) =>
     resolveCsnSourceName(source, sourceEntities, sharedSourceSpace);
   const sourceAlias = csnSourceAlias;
+  const joins = (entity.joins || []).map((join) => ({
+    ...join,
+    leftSource: canonicalSourceName(join.leftSource, entity.sources || []),
+    rightSource: canonicalSourceName(join.rightSource, entity.sources || []),
+  }));
   let from: Record<string, unknown> = {
     ref: [sourceReference(sources[0])],
     as: sourceAlias(sources[0]),
   };
+  const joinedSources = new Set([sources[0]]);
   for (const rightSource of sources.slice(1)) {
-    const join = entity.joins?.find((item) => item.rightSource === rightSource);
-    const leftSource = join?.leftSource || sources[0];
-    const on = join
-      ? [
-          { ref: [sourceAlias(leftSource), join.leftField] },
-          '=',
-          { ref: [sourceAlias(rightSource), join.rightField] },
-        ]
-      : undefined;
+    const join = joins.find((item) =>
+      (item.rightSource === rightSource && joinedSources.has(item.leftSource))
+      || (item.leftSource === rightSource && joinedSources.has(item.rightSource)),
+    );
+    if (!join) {
+      throw new Error(
+        `Fact/view "${entity.name}" has no valid join condition for source "${rightSource}".`,
+      );
+    }
+    const leftSource = join && join.leftSource !== rightSource
+      ? join.leftSource
+      : join?.rightSource || sources[0];
+    const leftField = join
+      ? leftSource === join.leftSource ? join.leftField : join.rightField
+      : '';
+    const rightField = join
+      ? rightSource === join.rightSource ? join.rightField : join.leftField
+      : '';
+    if (!leftField || !rightField) {
+      throw new Error(
+        `Fact/view "${entity.name}" has an incomplete join condition for source "${rightSource}".`,
+      );
+    }
+    const on = [
+      { ref: [sourceAlias(leftSource), leftField] },
+      '=',
+      { ref: [sourceAlias(rightSource), rightField] },
+    ];
     from = {
-      join: join?.joinType || 'inner',
+      join: join.joinType || 'inner',
       args: [from, { ref: [sourceReference(rightSource)], as: sourceAlias(rightSource) }],
-      ...(on ? { on } : {}),
+      on,
     };
+    joinedSources.add(rightSource);
   }
   return from;
+}
+
+function normalizedSourceName(source: string): string {
+  return source
+    .split('.')
+    .pop()!
+    .replace(/#(?:AS|NOT)$/i, '')
+    .replace(/^(?:L[0-4]_)+/i, '')
+    .replace(/^WRAP_/i, '')
+    .replace(/_Wrapper$/i, '')
+    .toUpperCase();
+}
+
+function canonicalSourceName(source: string, entitySources: string[]): string {
+  const withoutDependencySuffix = source.replace(/#(?:AS|NOT)$/i, '');
+  const exact = entitySources.find((candidate) =>
+    candidate === withoutDependencySuffix && !/#(?:AS|NOT)$/i.test(candidate),
+  );
+  if (exact) return exact;
+  const suffixedMatch = entitySources.find((candidate) => (
+    candidate === withoutDependencySuffix
+    || normalizedSourceName(candidate) === normalizedSourceName(withoutDependencySuffix)
+  ));
+  return suffixedMatch?.replace(/#(?:AS|NOT)$/i, '') || withoutDependencySuffix;
+}
+
+function resolveEntitySource(entity: CompressedEntity, source: string | undefined): string {
+  const canonical = source ? canonicalSourceName(source, entity.sources) : '';
+  if (canonical && entity.sources.includes(canonical)) return canonical;
+  const normalized = canonical ? normalizedSourceName(canonical) : '';
+  const match = entity.sources.find((candidate) =>
+    normalizedSourceName(candidate) === normalized,
+  );
+  return match || entity.sources[0] || '';
+}
+
+function isValidFilterExpression(filter: string): boolean {
+  const expression = filter.trim();
+  if (!expression || /^[A-Za-z_][A-Za-z0-9_]*$/.test(expression)) return false;
+  return /\s(?:=|<>|!=|<=|>=|<|>|IS(?:\s+NOT)?|IN|LIKE|BETWEEN)\s/i.test(expression);
 }
 
 export const ExportPage: React.FC = () => {
@@ -131,6 +209,8 @@ export const ExportPage: React.FC = () => {
   const [sharedSourceSpace, setSharedSourceSpace] = useState('');
   const [copied, setCopied] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [zipProgress, setZipProgress] = useState(0);
+  const [zipDownloadError, setZipDownloadError] = useState('');
   const sharedSourceSpaceIsMissing =
     sourcesSharedFromAnotherSpace && !sharedSourceSpace.trim();
   const sourceSpaceForExport = sourcesSharedFromAnotherSpace ? sharedSourceSpace : '';
@@ -227,45 +307,65 @@ export const ExportPage: React.FC = () => {
 
         if (ent.sources && ent.sources.length > 0) {
           const fromSource = ent.sources[0];
-          entityDef.query = {
-            SELECT: {
-              from: buildCsnFromClause(ent, sourceEntities, sourceSpaceForExport),
-              columns: ent.fields.map((f) => {
-                const calculatedField = ent.calculatedFields?.find(
-                  (field: { name: string }) => field.name === f.name,
-                );
-                return calculatedField?.formula
-                  ? { as: f.name, xpr: formulaToCsn(calculatedField.formula) }
-                  : { ref: [csnSourceAlias(f.source || fromSource), f.name] };
-              }),
-            },
-          };
-          const whereConditions = (ent.filters || []).map((filter: string) => {
+          const from = buildCsnFromClause(ent, sourceEntities, sourceSpaceForExport);
+          const queryColumns: FactQueryColumn[] = ent.fields.map((f) => {
+            const calculatedField = ent.calculatedFields?.find(
+              (field: { name: string }) => field.name === f.name,
+            );
+            const fieldSource = resolveEntitySource(ent, f.source || fromSource);
+            return calculatedField?.formula
+              ? {
+                  as: f.name,
+                  xpr: resolveCsnFormulaReferences(
+                    formulaToCsn(calculatedField.formula),
+                    ent.sources || [],
+                  ),
+                }
+              : { ref: [csnSourceAlias(fieldSource), f.name], ...(f.is_key ? { key: true } : {}) };
+          });
+          const whereConditions = (ent.filters || [])
+            .filter((filter: string) => isValidFilterExpression(filter))
+            .map((filter: string) => {
             const nonNullMatch = filter.match(/^([A-Z_][A-Z0-9_]*)\s+IS\s+NOT\s+NULL$/i);
             return nonNullMatch
               ? [{ ref: [nonNullMatch[1]] }, 'is not', { val: null }]
               : formulaToCsn(filter);
-          });
-          if (whereConditions.length > 0) {
-            entityDef.query.SELECT.where = whereConditions.flat();
-          }
-          if (ent.groupBy?.length) {
-            entityDef.query.SELECT.groupBy = ent.groupBy.map((field: string) => ({ ref: [field] }));
+            });
+          if (ent.kind === 'fact') {
+            entityDef.query = buildFactQuery(
+              from,
+              queryColumns,
+              [],
+              {
+                ...(whereConditions.length > 0 ? { where: whereConditions.flat() } : {}),
+                ...(ent.groupBy?.length
+                  ? { groupBy: ent.groupBy.map((field: string) => ({ ref: [field] })) }
+                  : {}),
+              },
+            );
+          } else {
+            entityDef.query = {
+              SELECT: {
+                from,
+                columns: queryColumns,
+                ...(whereConditions.length > 0 ? { where: whereConditions.flat() } : {}),
+                ...(ent.groupBy?.length
+                  ? { groupBy: ent.groupBy.map((field: string) => ({ ref: [field] })) }
+                  : {}),
+              },
+            };
           }
         }
 
         const modelingPattern = ent.kind === 'fact'
-          ? 'FACT'
+          ? 'ANALYTICAL_FACT'
           : ent.kind === 'analytic_model'
             ? 'ANALYTICAL_CUBE'
             : 'DATA_STRUCTURE';
         entityDef['@ObjectModel.modelingPattern'] = { '#': modelingPattern };
 
         if (ent.kind === 'fact') {
-          entityDef['@ObjectModel.supportedCapabilities'] = [
-            { '#': 'SQL_DATA_SOURCE' },
-            { '#': 'ANALYTICAL_PROVIDER' },
-          ];
+          Object.assign(entityDef, buildFactLayerMetadata());
         } else if (ent.kind === 'analytic_model') {
           entityDef['@ObjectModel.supportedCapabilities'] = [
             { '#': 'ANALYTICAL_PROVIDER' },
@@ -416,26 +516,60 @@ export const ExportPage: React.FC = () => {
     return exportFiles.find((f) => f.id === selectedFileId) || exportFiles[0];
   }, [exportFiles, selectedFileId]);
 
+  const downloadBlob = (blob: Blob, filename: string): void => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
+
+  const yieldToBrowser = (): Promise<void> => new Promise((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
+
   // Download individual file
   const handleDownloadSingle = (file: ExportFileItem) => {
-    const blob = new Blob([file.content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!file.content || !file.filename) {
+      setZipDownloadError('The selected export is empty and cannot be downloaded.');
+      return;
+    }
+    try {
+      downloadBlob(new Blob([file.content], { type: 'application/json' }), file.filename);
+    } catch (error) {
+      console.error(`Failed to download native export ${file.filename}.`, error);
+      setZipDownloadError(
+        error instanceof Error
+          ? error.message
+          : `Unable to download ${file.filename}.`,
+      );
+    }
   };
 
   // Download complete ZIP bundle via JSZip
   const handleDownloadAllZip = async () => {
     try {
+      if (exportFiles.length === 0) {
+        throw new Error('There are no export files to include in the ZIP bundle.');
+      }
       setDownloadingZip(true);
+      setZipProgress(0);
+      setZipDownloadError('');
       const zip = new JSZip();
 
-      exportFiles.forEach((f) => {
-        zip.file(f.filename, f.content);
-      });
+      await yieldToBrowser();
+      for (let index = 0; index < exportFiles.length; index += 1) {
+        const file = exportFiles[index];
+        if (!file.content || !file.filename) {
+          throw new Error(`Export file at position ${index + 1} is empty.`);
+        }
+        zip.file(file.filename, file.content);
+        if ((index + 1) % 10 === 0) await yieldToBrowser();
+      }
 
       const readmeLines = [
         `# SAP Datasphere Model Import Sequence`,
@@ -447,13 +581,18 @@ export const ExportPage: React.FC = () => {
       ];
       zip.file('IMPORT_GUIDE.txt', readmeLines.join('\n'));
 
-      const content = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Datasphere_CSN_Models_Bundle.zip';
-      a.click();
-      URL.revokeObjectURL(url);
+      const content = await zip.generateAsync(
+        { type: 'blob', compression: 'STORE', streamFiles: true },
+        (metadata) => setZipProgress(Math.round(metadata.percent)),
+      );
+      downloadBlob(content, 'Datasphere_CSN_Models_Bundle.zip');
+    } catch (error) {
+      console.error('Failed to create or download the native export ZIP.', error);
+      setZipDownloadError(
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred while creating the ZIP bundle.',
+      );
     } finally {
       setDownloadingZip(false);
     }
@@ -494,9 +633,14 @@ export const ExportPage: React.FC = () => {
           className="flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-[#0070F2] hover:bg-[#0058C6] text-white font-semibold text-xs shadow-sm transition-all cursor-pointer"
         >
           <FolderArchive className="w-4 h-4" />
-          <span>{downloadingZip ? 'Packaging ZIP...' : 'Download All as ZIP Bundle'}</span>
+          <span>{downloadingZip ? `Packaging ZIP (${zipProgress}%)...` : 'Download All as ZIP Bundle'}</span>
         </button>
       </div>
+      {zipDownloadError && (
+        <p className="rounded-lg border border-[#F1B4B4] bg-white px-4 py-3 text-sm text-[#B42318]" role="alert">
+          Could not download the ZIP bundle: {zipDownloadError}
+        </p>
+      )}
 
       <section className="rounded-xl border border-[#E2E8F0] bg-white p-4 space-y-3">
         <label className="flex items-start gap-3 text-sm text-[#1D2D3E]">

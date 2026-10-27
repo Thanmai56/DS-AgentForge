@@ -1,8 +1,34 @@
 import { CompressedEntity, isDeltaEntityName, isDeltaReference } from '../../utils/schemaCompressor';
-import { Plan, PlanNode } from './types';
+import { getNodeConditions, getNodeFormulas, Plan, PlanNode } from './types';
 
 function safeNodeId(prefix: string, source: string): string {
   return `${prefix}_${source.replace(/[^A-Za-z0-9_]/g, '_')}`;
+}
+
+function resolveUploadedSourceName(
+  sourceName: string,
+  sourceEntities: CompressedEntity[],
+): string {
+  const exactMatch = sourceEntities.find((entity) => entity.name === sourceName);
+  if (exactMatch) return exactMatch.name;
+
+  const layerSourceMatch = sourceName.match(/^L0_(.+)$/i);
+  if (!layerSourceMatch) return sourceName;
+
+  const sourceCandidate = layerSourceMatch[1];
+  const exactCandidate = sourceEntities.find((entity) =>
+    entity.name === sourceCandidate
+    || entity.name.split('.').pop() === sourceCandidate,
+  );
+  if (exactCandidate) return exactCandidate.name;
+
+  const normalize = (name: string) => name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalizedCandidate = normalize(sourceCandidate);
+  const normalizedMatches = sourceEntities.filter((entity) =>
+    normalize(entity.name) === normalizedCandidate
+    || normalize(entity.name.split('.').pop() || entity.name) === normalizedCandidate,
+  );
+  return normalizedMatches.length === 1 ? normalizedMatches[0].name : sourceCandidate;
 }
 
 function planNodeLayer(node: PlanNode): string {
@@ -26,15 +52,122 @@ function isWrapperConfigurationNode(node: PlanNode): boolean {
     && node.inputs.length === 1;
 }
 
+function withNormalizedRules(node: PlanNode): PlanNode {
+  const conditions = getNodeConditions(node);
+  const formulas = getNodeFormulas(node);
+  return {
+    ...node,
+    details: {
+      ...node.details,
+      conditions,
+      filters: conditions,
+      formulas,
+    },
+  };
+}
+
+function retainOutputDependencies(nodes: PlanNode[]): PlanNode[] {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const consumers = new Set(nodes.flatMap((node) => node.inputs));
+  const analyticModels = nodes.filter((node) => node.operation.toLowerCase() === 'analytic_model');
+  const roots = analyticModels.length > 0
+    ? analyticModels
+    : nodes.filter((node) =>
+        node.operation.toLowerCase() !== 'source' && !consumers.has(node.id),
+      );
+  if (roots.length === 0) return nodes;
+
+  const requiredIds = new Set<string>();
+  const visit = (node: PlanNode) => {
+    if (requiredIds.has(node.id)) return;
+    requiredIds.add(node.id);
+    node.inputs.forEach((input) => {
+      const dependency = nodeById.get(input);
+      if (dependency) visit(dependency);
+    });
+  };
+  roots.forEach(visit);
+  return nodes.filter((node) => requiredIds.has(node.id));
+}
+
 function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan {
-  const retainedPlanNodes = plan.nodes.filter((node) =>
+  const uploadedSources = sourceEntities.filter((entity) => entity.kind === 'table');
+  const originalSourceNodeIds = new Set(
+    plan.nodes
+      .filter((node) => node.operation.toLowerCase() === 'source')
+      .map((node) => node.id),
+  );
+  const sourceNameById = new Map<string, string>();
+  originalSourceNodeIds.forEach((sourceId) => {
+    sourceNameById.set(sourceId, resolveUploadedSourceName(sourceId, uploadedSources));
+  });
+
+  const resolveSourceReference = (reference: string): string => {
+    const separator = reference.lastIndexOf('.');
+    const qualifier = separator === -1 ? reference : reference.slice(0, separator);
+    const field = separator === -1 ? '' : reference.slice(separator + 1);
+    const sourceName = sourceNameById.get(qualifier)
+      || resolveUploadedSourceName(qualifier, uploadedSources);
+    return sourceName === qualifier
+      ? reference
+      : field ? `${sourceName}.${field}` : sourceName;
+  };
+
+  const normalizedNodes = plan.nodes.map((rawNode) => {
+    const node = withNormalizedRules(rawNode);
+    if (node.operation.toLowerCase() === 'source') {
+      const sourceName = sourceNameById.get(node.id) || node.id;
+      return { ...node, id: sourceName };
+    }
+
+    const inputs = node.inputs.map((input) => {
+      if (originalSourceNodeIds.has(input)) return sourceNameById.get(input) || input;
+      if (plan.nodes.some((candidate) => candidate.id === input)) return input;
+      return resolveUploadedSourceName(input, uploadedSources);
+    });
+    return {
+      ...node,
+      inputs,
+      details: {
+        ...node.details,
+        on: node.details?.on?.map((pair) => pair.map(resolveSourceReference)),
+        condition: node.details?.condition?.replace(
+          /([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)/g,
+          (reference) => resolveSourceReference(reference),
+        ),
+        formula: node.details?.formula?.replace(
+          /([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)/g,
+          (reference) => resolveSourceReference(reference),
+        ),
+        conditions: getNodeConditions(node).map((condition) => condition.replace(
+          /([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)/g,
+          (reference) => resolveSourceReference(reference),
+        )),
+        filters: getNodeConditions(node).map((condition) => condition.replace(
+          /([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)/g,
+          (reference) => resolveSourceReference(reference),
+        )),
+        formulas: getNodeFormulas(node).map((formula) => formula.replace(
+          /([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)/g,
+          (reference) => resolveSourceReference(reference),
+        )),
+      },
+    };
+  });
+  const normalizedSourceEntities = sourceEntities.map((entity) => ({
+    ...entity,
+    name: entity.kind === 'table'
+      ? resolveUploadedSourceName(entity.name, uploadedSources)
+      : entity.name,
+  }));
+
+  const retainedPlanNodes = retainOutputDependencies(normalizedNodes.filter((node) =>
     !isDeltaEntityName(node.id)
     && !(node.is_wrapper && node.inputs.some(isDeltaEntityName)),
-  );
-  const retainedEntities = sourceEntities.filter((entity) => !isDeltaEntityName(entity.name));
+  ));
+  const retainedEntities = normalizedSourceEntities.filter((entity) => !isDeltaEntityName(entity.name));
   const existingNodeIds = new Set(retainedPlanNodes.map((node) => node.id));
   const sourceNames = Array.from(new Set([
-    ...retainedEntities.filter((entity) => entity.kind === 'table').map((entity) => entity.name),
     ...retainedPlanNodes.filter((node) => node.operation.toLowerCase() === 'source').map((node) => node.id),
     ...retainedPlanNodes.flatMap((node) => node.inputs.filter((input) =>
       !existingNodeIds.has(input) && !isDeltaEntityName(input),
@@ -66,7 +199,7 @@ function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan 
       details: { ...existingWrapper.details },
       is_wrapper: true,
       is_projection_enabled: existingWrapper.is_projection_enabled || false,
-      is_filter_enabled: existingWrapper.is_filter_enabled || Boolean(existingWrapper.details?.condition),
+      is_filter_enabled: existingWrapper.is_filter_enabled || getNodeConditions(existingWrapper).length > 0,
       layer: 'L1',
     } : {
       id: wrapperId,
@@ -110,12 +243,14 @@ function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan 
         if (projected.size) wrapper.columns = wrapper.columns.filter((column) => projected.has(column));
         wrapper.is_projection_enabled = true;
       } else {
-        const condition = node.details?.condition?.trim();
-        if (condition) {
-          const previous = wrapper.details.condition?.trim();
-          wrapper.details.condition = previous
-            ? `(${previous}) AND (${condition})`
-            : condition;
+        const conditions = getNodeConditions(node);
+        if (conditions.length) {
+          const previous = getNodeConditions(wrapper);
+          const combined = [...previous, ...conditions]
+            .filter((condition, index, values) => values.indexOf(condition) === index);
+          wrapper.details.condition = combined.join(' AND ');
+          wrapper.details.conditions = combined;
+          wrapper.details.filters = combined;
         }
         wrapper.is_filter_enabled = true;
       }
@@ -183,6 +318,40 @@ function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan 
       return _match;
     });
   };
+
+  const preserveSelectedSourceColumns = (node: PlanNode): void => {
+    if (node.is_wrapper || isWrapperConfigurationNode(node)) return;
+
+    for (const columnReference of node.columns) {
+      const separator = columnReference.lastIndexOf('.');
+      const qualifier = separator >= 0 ? columnReference.slice(0, separator) : undefined;
+      const column = columnReference.split('.').pop() || columnReference;
+      const qualifiedSource = qualifier ? sourceForInput.get(qualifier) : undefined;
+
+      const candidateSources = qualifiedSource
+        ? [qualifiedSource]
+        : Array.from(new Set(node.inputs
+            .map((input) => sourceForInput.get(input))
+            .filter((sourceName): sourceName is string => Boolean(sourceName))))
+            .filter((sourceName) =>
+              entityByName.get(sourceName)?.fields.some((field) => field.name === column),
+            );
+
+      if (candidateSources.length !== 1) continue;
+
+      const sourceName = candidateSources[0];
+      const entity = entityByName.get(sourceName);
+      const wrapper = wrappers.get(sourceName);
+      if (
+        entity?.fields.some((field) => field.name === column)
+        && wrapper
+        && !wrapper.columns.includes(column)
+      ) {
+        wrapper.columns.push(column);
+      }
+    }
+  };
+
   retainedPlanNodes.forEach((node) => {
     node.details?.on?.forEach((pair) => pair.forEach((reference) => {
       const separator = reference.lastIndexOf('.');
@@ -194,8 +363,10 @@ function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan 
         if (wrapper && !wrapper.columns.includes(column)) wrapper.columns.push(column);
       }
     }));
-    preserveQualifiedReferences(node.details?.condition);
-    preserveQualifiedReferences(node.details?.formula);
+    getNodeConditions(node).forEach(preserveQualifiedReferences);
+    getNodeFormulas(node).forEach(preserveQualifiedReferences);
+    node.calculated_fields?.forEach((field) => preserveQualifiedReferences(field.formula));
+    preserveSelectedSourceColumns(node);
   });
 
   const resolveWrapperId = (id: string): string | undefined => {
@@ -243,9 +414,16 @@ function withWrapperLayer(plan: Plan, sourceEntities: CompressedEntity[]): Plan 
           ]
             .filter((pair) => !pair.some(isDeltaReference))
             .map((pair) => pair.map(rewire)),
-          condition: rewireExpression(node.details?.condition),
-          formula: rewireExpression(node.details?.formula),
+          condition: rewireExpression(getNodeConditions(node).join(' AND ')),
+          conditions: getNodeConditions(node).map((condition) => rewireExpression(condition) || condition),
+          filters: getNodeConditions(node).map((condition) => rewireExpression(condition) || condition),
+          formula: rewireExpression(getNodeFormulas(node)[0]),
+          formulas: getNodeFormulas(node).map((formula) => rewireExpression(formula) || formula),
         },
+        calculated_fields: node.calculated_fields?.map((field) => ({
+          ...field,
+          formula: rewireExpression(field.formula) || field.formula,
+        })),
       };
     });
   const sourceNodes = nodes.filter((node) => sourceNodeIds.has(node.id));
@@ -274,14 +452,21 @@ export function getRequiredNodeColumns(node: PlanNode, plan: Plan): string[] {
     candidate.id !== node.id && candidate.inputs.includes(node.id),
   );
   const required = new Set<string>();
+  getNodeConditions(node).forEach((condition) => {
+    condition.match(/[A-Za-z_][A-Za-z0-9_]*/g)?.forEach((identifier) => {
+      if (node.columns.includes(identifier)) required.add(identifier);
+    });
+  });
   downstream.forEach((candidate) => {
     if (candidate.operation.toLowerCase() !== 'filter') {
       candidate.columns.forEach((column) => {
         if (node.columns.includes(column)) required.add(column);
       });
     }
-    const expressions = [candidate.details?.condition, candidate.details?.formula]
-      .filter((expression): expression is string => Boolean(expression));
+    const expressions = [
+      ...getNodeConditions(candidate),
+      ...getNodeFormulas(candidate),
+    ];
     expressions.forEach((expression) => {
       expression.match(/[A-Za-z_][A-Za-z0-9_]*/g)?.forEach((identifier) => {
         if (node.columns.includes(identifier)) required.add(identifier);

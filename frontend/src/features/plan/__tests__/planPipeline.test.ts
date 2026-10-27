@@ -66,6 +66,49 @@ describe('plan pipeline preparation', () => {
     expect(join?.details.on).toEqual([['WRAP_ORDERS.CUSTOMER_ID', 'WRAP_CUSTOMERS.CUSTOMER_ID']]);
   });
 
+  it('resolves application L0 source IDs to uploaded source names before creating L1 wrappers', () => {
+    const layeredPlan: Plan = {
+      ...plan,
+      nodes: [
+        {
+          id: 'L0_ORDERS',
+          operation: 'source',
+          inputs: [],
+          columns: ['ORDER_ID', 'CUSTOMER_ID', 'STATUS'],
+          details: {},
+          reason: 'Uploaded orders table.',
+          layer: 'L0',
+        },
+        {
+          id: 'L1_ORDERS_VIEW',
+          operation: 'projection',
+          inputs: ['L0_ORDERS'],
+          columns: ['ORDER_ID', 'CUSTOMER_ID'],
+          details: {},
+          reason: 'Project order fields.',
+          layer: 'L1',
+        },
+        {
+          ...plan.nodes[0],
+          inputs: ['L1_ORDERS_VIEW', 'CUSTOMERS'],
+          details: {
+            ...plan.nodes[0].details,
+            on: [['L0_ORDERS.CUSTOMER_ID', 'CUSTOMERS.CUSTOMER_ID']],
+          },
+        },
+      ],
+    };
+
+    const prepared = preparePlanPipeline(layeredPlan, sources);
+    const ordersWrapper = prepared.nodes.find((node) => node.id === 'WRAP_ORDERS');
+    const join = prepared.nodes.find((node) => node.id === 'L3_ORDERS_FACT');
+
+    expect(prepared.nodes.map((node) => node.id)).not.toContain('L0_ORDERS');
+    expect(ordersWrapper?.inputs).toEqual(['ORDERS']);
+    expect(join?.inputs).toContain('WRAP_ORDERS');
+    expect(join?.details.on).toEqual([['WRAP_ORDERS.CUSTOMER_ID', 'WRAP_CUSTOMERS.CUSTOMER_ID']]);
+  });
+
   it('omits delta entities and their wrappers from the prepared plan', () => {
     const deltaSource: CompressedEntity = {
       name: 'I_SUPPLIER_Delta',
@@ -231,6 +274,51 @@ describe('plan pipeline preparation', () => {
       .toEqual(['ORDER_ID', 'CUSTOMER_ID']);
     expect(join?.inputs).toEqual(['WRAP_ORDERS', 'WRAP_CUSTOMERS']);
     expect(join?.details.on).toEqual([['WRAP_ORDERS.CUSTOMER_ID', 'WRAP_CUSTOMERS.CUSTOMER_ID']]);
+  });
+
+  it('keeps source columns selected by downstream fact nodes in projected wrappers', () => {
+    const projectedPlan: Plan = {
+      ...plan,
+      nodes: [
+        {
+          id: 'L1_ORDERS',
+          operation: 'projection',
+          inputs: ['ORDERS'],
+          columns: ['ORDER_ID'],
+          details: {},
+          reason: 'Project order key.',
+          layer: 'L1',
+        },
+        {
+          id: 'L1_CUSTOMERS',
+          operation: 'projection',
+          inputs: ['CUSTOMERS'],
+          columns: ['CUSTOMER_ID'],
+          details: {},
+          reason: 'Project customer key.',
+          layer: 'L1',
+        },
+        {
+          id: 'L3_ORDERS_FACT',
+          operation: 'join',
+          inputs: ['L1_ORDERS', 'L1_CUSTOMERS'],
+          columns: ['ORDER_ID', 'CUSTOMER_ID', 'STATUS', 'CUSTOMER_NAME'],
+          details: {
+            join_type: 'left',
+            on: [['L1_ORDERS.CUSTOMER_ID', 'L1_CUSTOMERS.CUSTOMER_ID']],
+          },
+          reason: 'Join orders with customer details.',
+          layer: 'L3',
+        },
+      ],
+    };
+
+    const prepared = preparePlanPipeline(projectedPlan, sources);
+
+    expect(prepared.nodes.find((node) => node.id === 'WRAP_ORDERS')?.columns)
+      .toContain('STATUS');
+    expect(prepared.nodes.find((node) => node.id === 'WRAP_CUSTOMERS')?.columns)
+      .toContain('CUSTOMER_NAME');
   });
 
   it('inlines L2 joins into the fact instead of leaving a missing view dependency', () => {

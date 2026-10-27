@@ -97,28 +97,14 @@ class GeminiLLMProvider(LLMProvider):
         from google import genai
 
         client = genai.Client(api_key=self.api_key)
-        models_to_try = [self.model]
-        for fallback in ("gemini-3.5-flash-lite", "gemini-3.8-flash"):
-            if fallback not in models_to_try:
-                models_to_try.append(fallback)
-
-        last_err = None
-        for m in models_to_try:
-            try:
-                response = client.models.generate_content(
-                    model=m,
-                    contents=user_prompt,
-                    config={"system_instruction": system_prompt, "response_mime_type": "application/json"},
-                )
-                if response.text:
-                    return response.text
-            except Exception as e:
-                logger.warning(f"Gemini model {m} call failed ({e}), attempting next available model...")
-                last_err = e
-
-        if last_err:
-            raise last_err
-        return "{}"
+        response = client.models.generate_content(
+            model=self.model,
+            contents=user_prompt,
+            config={"system_instruction": system_prompt, "response_mime_type": "application/json"},
+        )
+        if not response.text:
+            raise RuntimeError(f"Gemini model '{self.model}' returned an empty response.")
+        return response.text
 
 
 def get_llm_provider(provider_name: str | None = None) -> LLMProvider:

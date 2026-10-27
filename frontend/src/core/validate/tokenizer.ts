@@ -67,6 +67,19 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
+    // Double-quoted SQL identifiers
+    if (ch === '"') {
+      let val = '';
+      i++;
+      while (i < input.length) {
+        if (input[i] === '"' && input[i + 1] === '"') { val += '"'; i += 2; continue; }
+        if (input[i] === '"') { i++; break; }
+        val += input[i++];
+      }
+      tokens.push(tok('IDENT', val, startLine, startCol));
+      continue;
+    }
+
     // Number
     if (/\d/.test(ch) || (ch === '.' && /\d/.test(input[i + 1] ?? ''))) {
       let val = '';

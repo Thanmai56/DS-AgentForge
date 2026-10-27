@@ -55,16 +55,69 @@ describe('buildPlanExportEntities', () => {
     const entities = buildPlanExportEntities(plan, [source]);
     expect(entities.map((entity) => entity.name)).toEqual([
       'STOCK',
-      'L1_STOCK',
+      'WRAP_STOCK',
       'L3_STOCK_FACT',
       'L4_STOCK_MODEL',
     ]);
-    expect(entities[2].sources).toEqual(['L1_STOCK']);
+    expect(entities[2].sources).toEqual(['WRAP_STOCK']);
     expect(entities[2].calculatedFields).toEqual([
       { name: 'STOCK_VALUE', label: 'STOCK_VALUE', formula: 'LABST * UNIT_PRICE' },
     ]);
     expect(entities[3].groupBy).toEqual(['MATNR']);
     expect(entities[3].fields.find((field) => field.name === 'STOCK_VALUE')?.semantic_role).toBe('measure');
+  });
+
+  it('uses the generated node input for fact field references instead of stale metadata aliases', () => {
+    const source: CompressedEntity = {
+      name: 'ORDERS',
+      business_name: 'Orders',
+      kind: 'table',
+      sources: [],
+      fields: [
+        {
+          name: 'ORDER_DATE',
+          data_type: 'cds.Date',
+          is_key: true,
+          label: 'Order date',
+          semantic_role: 'date',
+          source: 'L1_ORDERS_Wrapper',
+        },
+      ],
+    };
+    const plan: Plan = {
+      analysis: [],
+      nodes: [
+        {
+          id: 'WRAP_ORDERS',
+          operation: 'projection',
+          inputs: ['ORDERS'],
+          columns: ['ORDER_DATE'],
+          details: {},
+          reason: 'Wrapper over orders.',
+          is_wrapper: true,
+          layer: 'L1',
+        },
+        {
+          id: 'L3_ORDERS_FACT',
+          operation: 'calculated_column',
+          inputs: ['WRAP_ORDERS'],
+          columns: ['ORDER_DATE'],
+          details: {},
+          reason: 'Fact over orders.',
+          layer: 'L3',
+        },
+      ],
+      measures: [],
+      dimensions: ['ORDER_DATE'],
+      assumptions: [],
+      blockers: [],
+    };
+
+    const fact = buildPlanExportEntities(plan, [source])
+      .find((entity) => entity.name === 'L3_ORDERS_FACT');
+
+    expect(fact?.fields.find((field) => field.name === 'ORDER_DATE')?.source)
+      .toBe('WRAP_ORDERS');
   });
 
   it('keeps existing source objects as query dependencies instead of exporting empty local tables', () => {
@@ -123,6 +176,110 @@ describe('buildPlanExportEntities', () => {
     expect(generatedEntities[0].sources).toEqual(['EXISTING_SOURCE']);
     expect(lineageEntities.map((entity) => entity.name)).not.toContain('L1_SOURCE_VIEW');
     expect(lineageEntities.map((entity) => entity.name)).not.toContain('EXISTING_VIEW');
+  });
+
+  it('exports an L1 wrapper against the actual uploaded source name, not its L0 plan ID', () => {
+    const source: CompressedEntity = {
+      name: 'ORDERS',
+      business_name: 'Orders',
+      kind: 'table',
+      sources: [],
+      fields: [
+        { name: 'ORDER_ID', data_type: 'cds.String', is_key: true, label: 'Order ID', semantic_role: 'key' },
+      ],
+    };
+    const sourceLayerPlan: Plan = {
+      analysis: [],
+      nodes: [
+        {
+          id: 'L0_ORDERS',
+          operation: 'source',
+          inputs: [],
+          columns: ['ORDER_ID'],
+          details: {},
+          reason: 'Uploaded orders source.',
+          layer: 'L0',
+        },
+        {
+          id: 'L1_ORDERS_VIEW',
+          operation: 'projection',
+          inputs: ['L0_ORDERS'],
+          columns: ['ORDER_ID'],
+          details: {},
+          reason: 'Expose order fields.',
+          layer: 'L1',
+        },
+      ],
+      measures: [],
+      dimensions: ['ORDER_ID'],
+      assumptions: [],
+      blockers: [],
+    };
+
+    const entities = buildPlanExportEntities(sourceLayerPlan, [source]);
+    const l1Entity = entities.find((entity) => entity.name === 'WRAP_ORDERS');
+
+    expect(l1Entity?.sources).toEqual(['ORDERS']);
+    expect(entities.map((entity) => entity.name)).not.toContain('L0_ORDERS');
+  });
+
+  it('does not create wrappers for input tables that the plan does not use', () => {
+    const usedSource: CompressedEntity = {
+      name: 'ORDERS',
+      business_name: 'Orders',
+      kind: 'table',
+      sources: [],
+      fields: [
+        { name: 'ORDER_ID', data_type: 'cds.String', is_key: true, label: 'Order ID', semantic_role: 'key' },
+      ],
+    };
+    const unusedSource: CompressedEntity = {
+      name: 'CUSTOMERS',
+      business_name: 'Customers',
+      kind: 'table',
+      sources: [],
+      fields: [
+        { name: 'CUSTOMER_ID', data_type: 'cds.String', is_key: true, label: 'Customer ID', semantic_role: 'key' },
+      ],
+    };
+    const plan: Plan = {
+      analysis: [],
+      nodes: [
+        {
+          id: 'UNUSED_SOURCE_NODE',
+          operation: 'source',
+          inputs: [],
+          columns: ['CUSTOMER_ID'],
+          details: {},
+          reason: 'Unused source listed in the plan.',
+          layer: 'L0',
+        },
+        {
+          id: 'FACT_ORDERS',
+          operation: 'join',
+          inputs: ['ORDERS'],
+          columns: ['ORDER_ID'],
+          details: {},
+          reason: 'Build order fact.',
+          layer: 'L3',
+        },
+      ],
+      measures: [],
+      dimensions: [],
+      assumptions: [],
+      blockers: [],
+    };
+
+    const entities = buildPlanExportEntities(plan, [usedSource, unusedSource]);
+
+    expect(entities.map((entity) => entity.name)).toEqual([
+      'ORDERS',
+      'WRAP_ORDERS',
+      'FACT_ORDERS',
+    ]);
+    expect(entities.map((entity) => entity.name)).not.toContain('CUSTOMERS');
+    expect(entities.map((entity) => entity.name)).not.toContain('WRAP_CUSTOMERS');
+    expect(entities.map((entity) => entity.name)).not.toContain('UNUSED_SOURCE_NODE');
   });
 
   it('does not add delta replication sources to plan lineage entities', () => {

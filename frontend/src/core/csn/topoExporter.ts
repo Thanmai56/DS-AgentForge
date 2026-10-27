@@ -2,10 +2,15 @@
 // Topological sort of LineageGraph -> ordered CsnFile[] ready for Page 2.
 // No React imports.
 
-import type { LineageGraph, CsnFile, FieldDef, CsnToken } from '../model/types';
+import type { LineageGraph, CsnFile, FieldDef, ViewDef } from '../model/types';
 import { formulaToCsn } from './formulaConverter';
 import { buildJoinView, buildSimpleView } from './templates.verified';
-import { buildFactView, buildAnalyticModel } from './templates.experimental';
+import {
+  buildFactView,
+  buildAnalyticModel,
+  type FactQueryColumn,
+} from './templates.experimental';
+import { resolveCsnFormulaReferences } from './sourceReference';
 
 // ── Topological sort ───────────────────────────────────────────────────────────
 function topoSort(graph: LineageGraph): string[] {
@@ -34,6 +39,72 @@ function topoSort(graph: LineageGraph): string[] {
   return order;
 }
 
+function buildFactFrom(view: ViewDef): Record<string, unknown> {
+  if (view.sources.length === 0) {
+    throw new Error(`Fact view "${view.technicalName}" must have at least one source.`);
+  }
+
+  let from: Record<string, unknown> = {
+    ref: [view.sources[0]],
+    as: view.sources[0],
+  };
+  const joinedSources = new Set([view.sources[0]]);
+
+  for (const source of view.sources.slice(1)) {
+    const join = view.joins.find((candidate) =>
+      candidate.rightSource === source && joinedSources.has(candidate.leftSource)
+      || candidate.leftSource === source && joinedSources.has(candidate.rightSource),
+    );
+    if (!join) {
+      throw new Error(
+        `Fact view "${view.technicalName}" has no join condition for source "${source}".`,
+      );
+    }
+    from = {
+      join: join.joinType,
+      args: [from, { ref: [source], as: source }],
+      on: [
+        { ref: [join.leftSource, join.leftField] },
+        '=',
+        { ref: [join.rightSource, join.rightField] },
+      ],
+    };
+    joinedSources.add(source);
+  }
+
+  return from;
+}
+
+function buildFactColumns(graph: LineageGraph, view: ViewDef): FactQueryColumn[] {
+  const calculatedFields = new Map(view.calculatedFields.map((field) => [field.name, field]));
+  const columns = view.projectedFields.map((field) => {
+    const calculated = calculatedFields.get(field.name);
+    if (calculated) {
+      return {
+        xpr: resolveCsnFormulaReferences(
+          calculated.csnXpr ?? formulaToCsn(calculated.formula),
+          view.sources,
+        ),
+        as: field.name,
+      };
+    }
+
+    const source = field.source && view.sources.includes(field.source)
+      ? field.source
+      : view.sources.find((sourceName) => {
+      const viewSource = graph.views.find((candidate) => candidate.technicalName === sourceName);
+      const tableSource = graph.sources.find((candidate) => candidate.technicalName === sourceName);
+      return viewSource?.projectedFields.some((candidate) => candidate.name === field.name)
+        || tableSource?.fields.some((candidate) => candidate.name === field.name);
+      }) || view.sources[0];
+    return {
+      ref: [source, field.name],
+      ...(field.key ? { key: true } : {}),
+    };
+  });
+  return columns;
+}
+
 // ── Main export ────────────────────────────────────────────────────────────────
 export function exportCsnFiles(graph: LineageGraph): CsnFile[] {
   const order = topoSort(graph);
@@ -49,14 +120,17 @@ export function exportCsnFiles(graph: LineageGraph): CsnFile[] {
 
     // Analytic model
     if (id === graph.analyticModelId) {
+      // Collect dimension and measure fields from fact view
+      const factView = graph.views.find(v => v.kind === 'fact');
       const kpiCsnFields = graph.kpis.map(k => ({
         name: k.name,
         label: k.label,
-        xpr: k.csnXpr ?? formulaToCsn(k.formula),
+        xpr: resolveCsnFormulaReferences(
+          k.csnXpr ?? formulaToCsn(k.formula),
+          factView?.sources ?? [],
+        ),
       }));
 
-      // Collect dimension and measure fields from fact view
-      const factView = graph.views.find(v => v.kind === 'fact');
       const dimFields = factView?.projectedFields.filter(f => !f.isMeasure) ?? [];
       const measureFields = factView?.projectedFields.filter(f => f.isMeasure) ?? [];
 
@@ -87,7 +161,10 @@ export function exportCsnFiles(graph: LineageGraph): CsnFile[] {
       const kpiCsnFields = graph.kpis.map(k => ({
         name: k.name,
         label: k.label,
-        xpr: k.csnXpr ?? formulaToCsn(k.formula),
+        xpr: resolveCsnFormulaReferences(
+          k.csnXpr ?? formulaToCsn(k.formula),
+          view.sources,
+        ),
       }));
       const measureFields = view.projectedFields.filter(f => f.isMeasure);
       const dimFields = view.projectedFields.filter(f => !f.isMeasure);
@@ -100,6 +177,8 @@ export function exportCsnFiles(graph: LineageGraph): CsnFile[] {
         fields: dimFields,
         measureFields,
         kpiFields: kpiCsnFields,
+        queryFrom: buildFactFrom(view),
+        queryColumns: buildFactColumns(graph, view),
       });
 
       files.push({

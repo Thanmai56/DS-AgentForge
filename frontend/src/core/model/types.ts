@@ -20,6 +20,8 @@ export interface FieldDef {
   notNull?: boolean;
   isMeasure?: boolean;
   isCalc?: boolean;
+  aggregation?: string;
+  source?: string;
 }
 
 export interface SourceDef {
@@ -80,7 +82,7 @@ export type FormulaState = 'unvalidated' | 'validating' | 'valid' | 'invalid';
 // ── CSN Token types (mirrors real Datasphere xpr structure) ──────────────────
 export type CsnToken =
   | { ref: string[] }
-  | { val: string | number | boolean }
+  | { val: string | number | boolean | null }
   | { func: string; args: CsnToken[] }
   | { xpr: CsnToken[] }
   | string; // operator: '+', '-', '*', '/', '=', '||', etc.

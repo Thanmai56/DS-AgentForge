@@ -17,8 +17,13 @@ export interface NodeDetails {
   join_type?: string;
   on?: string[][];
   condition?: string;
+  conditions?: string[];
+  filters?: string[];
   formula?: string;
+  formulas?: string[];
   aggregation?: string;
+  group_by?: string[];
+  [key: string]: unknown;
 }
 
 export interface PlanNode {
@@ -40,6 +45,7 @@ export interface PlanNode {
   is_projection_enabled?: boolean;
   is_filter_enabled?: boolean;
   layer?: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | string;
+  [key: string]: unknown;
 }
 
 export interface PlanMeasure {
@@ -55,6 +61,21 @@ export interface Plan {
   dimensions: string[];
   assumptions: string[];
   blockers: string[];
+}
+
+export function getNodeConditions(node: PlanNode): string[] {
+  return [
+    ...(node.details?.condition ? [node.details.condition] : []),
+    ...(node.details?.conditions || []),
+    ...(node.details?.filters || []),
+  ].filter((value, index, values) => value?.trim() && values.indexOf(value) === index);
+}
+
+export function getNodeFormulas(node: PlanNode): string[] {
+  return [
+    ...(node.details?.formula ? [node.details.formula] : []),
+    ...(node.details?.formulas || []),
+  ].filter((value, index, values) => value?.trim() && values.indexOf(value) === index);
 }
 
 export interface GeneratePlanResponse {

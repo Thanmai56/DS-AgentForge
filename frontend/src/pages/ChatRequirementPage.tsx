@@ -205,11 +205,14 @@ export const ChatRequirementPage: React.FC = () => {
 
   // Keep global store synchronized with extracted entities
   useEffect(() => {
-    if (allExtractedSources.length > 0) {
-      setExtractedEntities(allExtractedSources);
-      if (!selectedSampleTable || (selectedSampleTable !== '_all_' && !allExtractedSources.some((s) => s.name === selectedSampleTable))) {
-        setSelectedSampleTable(allExtractedSources[0].name);
-      }
+    setExtractedEntities(allExtractedSources);
+    if (
+      allExtractedSources.length > 0
+      && (!selectedSampleTable
+        || (selectedSampleTable !== '_all_'
+          && !allExtractedSources.some((source) => source.name === selectedSampleTable)))
+    ) {
+      setSelectedSampleTable(allExtractedSources[0].name);
     }
   }, [allExtractedSources, selectedSampleTable, setExtractedEntities]);
 
@@ -298,29 +301,27 @@ export const ChatRequirementPage: React.FC = () => {
       }
 
       // Generate visual plan via Phase 1 backend API
-      try {
-        try {
-          sessionStorage.setItem('activeSourceEntities', JSON.stringify(allExtractedSources));
-        } catch (storageError) {
-          console.warn('Could not persist source elements for the plan inspector:', storageError);
-        }
-        const { generatePlanApi } = await import('../features/plan/planApi');
-        const res = await generatePlanApi(prompt, payloadMetadata, {
-          sampleData: sampleDataPayload,
-          rowLimit: rowLimit,
-          filename: primaryFilename,
-        });
-        sessionStorage.setItem('activePlanId', res.plan_id);
-        sessionStorage.setItem('activePlanRequestId', res.request_id || '');
-        sessionStorage.setItem('activePlan', JSON.stringify(res.plan));
-        if (res.sample_data_summary) {
-          sessionStorage.setItem('activeSampleDataSummary', JSON.stringify(res.sample_data_summary));
-        }
-        if (res.warnings && res.warnings.length > 0) {
-          sessionStorage.setItem('activePlanWarnings', JSON.stringify(res.warnings));
-        }
-      } catch (apiErr) {
-        console.warn('Backend plan API call finished with note, proceeding to Plan page:', apiErr);
+      sessionStorage.removeItem('activePlan');
+      sessionStorage.removeItem('activePlanId');
+      sessionStorage.removeItem('activePlanRequestId');
+      sessionStorage.removeItem('activePlanWarnings');
+      sessionStorage.removeItem('activeSampleDataSummary');
+      sessionStorage.setItem('activeSourceEntities', JSON.stringify(allExtractedSources));
+
+      const { generatePlanApi } = await import('../features/plan/planApi');
+      const res = await generatePlanApi(prompt, payloadMetadata, {
+        sampleData: sampleDataPayload,
+        rowLimit: rowLimit,
+        filename: primaryFilename,
+      });
+      sessionStorage.setItem('activePlanId', res.plan_id);
+      sessionStorage.setItem('activePlanRequestId', res.request_id || '');
+      sessionStorage.setItem('activePlan', JSON.stringify(res.plan));
+      if (res.sample_data_summary) {
+        sessionStorage.setItem('activeSampleDataSummary', JSON.stringify(res.sample_data_summary));
+      }
+      if (res.warnings && res.warnings.length > 0) {
+        sessionStorage.setItem('activePlanWarnings', JSON.stringify(res.warnings));
       }
 
       // Navigate straight to the Visual Plan page!

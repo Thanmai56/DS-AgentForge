@@ -73,6 +73,7 @@ def check_plan(plan: Plan, metadata: ExtractedMetadata) -> PlanCheckResult:
         # If operation is a join, validate join keys
         if node.operation == "join":
             _validate_join_node(node, available_objects, errors, warnings)
+        _validate_filter_conditions(node, errors)
 
         # Calculate this node's output columns
         output_cols = _compute_node_columns(node, input_columns, metadata, errors)
@@ -80,7 +81,24 @@ def check_plan(plan: Plan, metadata: ExtractedMetadata) -> PlanCheckResult:
 
     # 4. Validate Measures
     for m in plan.measures:
-        # Check if the measure's column exists in at least one available view/model
+        # A formula measure may intentionally use an expression rather than a
+        # single projected column, for example `OnTimeDelivery = 'On Time'`.
+        # Validate its referenced fields independently instead of treating the
+        # entire expression as a column name.
+        if _is_measure_expression(m.column, m.aggregation):
+            referenced_fields = _measure_referenced_fields(m.column)
+            missing_fields = [
+                field for field in referenced_fields
+                if not any(field in cols for cols in available_objects.values())
+            ]
+            if missing_fields:
+                warnings.append(
+                    f"Measure '{m.name}' contains expression '{m.column}' with "
+                    f"unresolved field reference(s): {', '.join(missing_fields)}."
+                )
+            continue
+
+        # Plain measures still require a real projected column.
         col_found = any(m.column in cols for cols in available_objects.values())
         if not col_found and m.column not in ("*", "1"):
             errors.append(f"Measure '{m.name}' references column '{m.column}' which does not exist in any view.")
@@ -100,6 +118,94 @@ def check_plan(plan: Plan, metadata: ExtractedMetadata) -> PlanCheckResult:
         errors=errors,
         warnings=warnings,
     )
+
+
+def _validate_filter_conditions(node: PlanNode, errors: list[str]) -> None:
+    """Reject bare column references that cannot form a Datasphere WHERE clause."""
+    for condition in node.details.conditions or node.details.filters:
+        expression = condition.strip()
+        if not expression:
+            continue
+        if not re.search(
+            r"\s(?:=|<>|!=|<=|>=|<|>|IS(?:\s+NOT)?|IN|LIKE|BETWEEN)\s",
+            expression,
+            flags=re.IGNORECASE,
+        ):
+            errors.append(
+                f"Node '{node.id}' has invalid filter condition '{condition}'. "
+                "A filter must include a comparison operator and value."
+            )
+
+    formulas = [
+        (calculated_field.name, calculated_field.formula)
+        for calculated_field in node.calculated_fields
+    ]
+    formulas.extend(
+        (f"formula_{index + 1}", formula)
+        for index, formula in enumerate(node.details.formulas)
+    )
+    if node.details.formula:
+        formulas.append(("formula", node.details.formula))
+
+    for field_name, raw_formula in formulas:
+        formula = raw_formula.strip()
+        if not formula:
+            continue
+        formula_errors = _validate_formula_shape(formula)
+        for issue in formula_errors:
+            errors.append(
+                f"Node '{node.id}' calculated field '{field_name}' has invalid formula "
+                f"'{raw_formula}': {issue}"
+            )
+
+
+def _validate_formula_shape(formula: str) -> list[str]:
+    """Check formula constructs that must map to valid Datasphere CSN tokens."""
+    issues: list[str] = []
+    if re.search(r"\b(?:THEN|ELSE)\s+(?:AND|OR|NOT|WHEN|THEN|ELSE|END)\b", formula, re.IGNORECASE):
+        issues.append("a CASE branch is missing a value")
+
+    if re.search(r"\bCAST\s*\([^)]*\bAS\s+[^)]*\bAS\b", formula, re.IGNORECASE):
+        issues.append("CAST contains more than one AS clause")
+    elif re.search(r"\bCAST\s*\([^)]*\bAS\s*$", formula, re.IGNORECASE):
+        issues.append("CAST is missing its target type")
+    elif re.search(r"\bCAST\s*\([^)]*\bAS\s+[^()]+$", formula, re.IGNORECASE):
+        issues.append("CAST is missing its closing parenthesis")
+
+    case_count = len(re.findall(r"\bCASE\b", formula, re.IGNORECASE))
+    end_count = len(re.findall(r"\bEND\b", formula, re.IGNORECASE))
+    when_count = len(re.findall(r"\bWHEN\b", formula, re.IGNORECASE))
+    then_count = len(re.findall(r"\bTHEN\b", formula, re.IGNORECASE))
+    if case_count != end_count:
+        issues.append("CASE and END counts do not match")
+    if when_count != then_count:
+        issues.append("WHEN and THEN counts do not match")
+
+    # Raw plan formulas may use ordinary division. The CSN exporter is
+    # responsible for wrapping simple denominators with NULLIF(..., 0).
+    return issues
+
+
+def _is_measure_expression(column: str, aggregation: str) -> bool:
+    """Return whether a measure column value is an expression rather than a name."""
+    if aggregation.strip().upper() == "FORMULA":
+        return True
+    return bool(re.search(r"(?:=|<>|!=|<=|>=|<|>|\+|-|\*|/|\(|\))", column))
+
+
+def _measure_referenced_fields(expression: str) -> list[str]:
+    """Extract identifiers from a measure expression, excluding SQL keywords."""
+    without_strings = re.sub(r"'(?:''|[^'])*'", "", expression)
+    keywords = {
+        "AND", "AS", "BETWEEN", "CASE", "ELSE", "END", "IN", "IS",
+        "LIKE", "NOT", "NULL", "OR", "THEN", "WHEN",
+    }
+    fields: list[str] = []
+    for match in re.finditer(r"\b[A-Za-z_][A-Za-z0-9_]*\b", without_strings):
+        field = match.group(0)
+        if field.upper() not in keywords and field not in fields:
+            fields.append(field)
+    return fields
 
 
 def _validate_join_node(
@@ -143,10 +249,17 @@ def _validate_join_node(
 
             key = _strip_qualifier(reference)
             if key not in columns:
-                errors.append(
-                    f"Join node '{node.id}' {side} join key '{reference}' not found in input '{source}'. "
-                    f"Available columns: {sorted(columns)}"
+                warnings.append(
+                    f"Join node '{node.id}' {side} join key '{reference}' is not present in "
+                    f"input '{source}'. Available columns: {sorted(columns)}. "
+                    "The plan was accepted, but verify the Datasphere technical column name before export."
                 )
+
+    if node.details.join_type.lower() not in {"", "inner", "left", "right", "full"}:
+        errors.append(
+            f"Join node '{node.id}' has unsupported join type "
+            f"'{node.details.join_type}'."
+        )
 
 
 def _resolve_join_input(reference: str, inputs: list[str], default_input: str) -> str | None:

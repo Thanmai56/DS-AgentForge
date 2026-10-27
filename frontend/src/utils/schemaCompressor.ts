@@ -181,7 +181,10 @@ export function compressAndExtractSchema(rawInput: any): CompressedEntity[] {
       let kind: 'table' | 'view' | 'fact' | 'analytic_model' = 'view';
       if (entName.startsWith('AM_') || def.kind === 'analyticModel') {
         kind = 'analytic_model';
-      } else if (entName.startsWith('F_') || def['@ObjectModel.modelingPattern']?.['#'] === 'FACT') {
+      } else if (
+        entName.startsWith('F_')
+        || ['FACT', 'ANALYTICAL_FACT'].includes(def['@ObjectModel.modelingPattern']?.['#'])
+      ) {
         kind = 'fact';
       } else if (!def.query) {
         kind = 'table';

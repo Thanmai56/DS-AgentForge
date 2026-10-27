@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Check, X, ShieldAlert, FileText, CheckCircle2, Layers, AlertCircle } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { api } from '../../api/client';
@@ -6,9 +7,11 @@ import { ConfidenceBadge } from './ConfidenceBadge';
 
 export const GateApprovalModal: React.FC = () => {
   const { pendingGate, closeGateModal, updateRunState } = useStore();
+  const location = useLocation();
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [showGateReview, setShowGateReview] = useState(false);
 
   if (!pendingGate.isOpen || !pendingGate.runId || !pendingGate.gateType) {
     return null;
@@ -19,6 +22,40 @@ export const GateApprovalModal: React.FC = () => {
     : gateType === 'plan_confirm' ? 'plan'
     : gateType === 'artifact_approve' ? 'artifacts'
     : gateType;
+
+  if (location.pathname === '/export' && !showGateReview) {
+    return (
+      <aside className="fixed right-5 top-16 z-50 max-w-sm rounded-xl border border-[#FCD5B5] bg-white p-4 shadow-xl">
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#E76500]" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#1D2D3E]">
+              Agent run paused for {normalizedGate} review
+            </p>
+            <p className="mt-1 text-xs text-[#556B82]">
+              Native Export remains available while the run is waiting for approval.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGateReview(true)}
+                className="rounded-md bg-[#0070F2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0058C6]"
+              >
+                Review gate
+              </button>
+              <button
+                type="button"
+                onClick={closeGateModal}
+                className="rounded-md border border-[#D9DDE3] px-3 py-1.5 text-xs font-semibold text-[#324558] hover:bg-[#F5F7FA]"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   const handleApprove = async () => {
     try {

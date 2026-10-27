@@ -57,6 +57,8 @@ def test_load_planner_system_prompt():
     assert "Allowed operations:" in prompt
     assert '"calculated_fields":[{"name":"","formula":"","label":"","data_type":""}]' in prompt
     assert "Do not collapse multiple requested formulas" in prompt
+    assert "Join conditions must use the exact column names available on each respective" in prompt
+    assert "A layer prefix in a node ID (for example, `L1_...`)" in prompt
     assert "Output ONLY valid JSON in this format:" in prompt
 
 
@@ -85,6 +87,23 @@ def test_generate_plan_success(sample_metadata_and_profile):
     assert all(field.name in fact.columns for field in fact.calculated_fields)
     assert plan.measures[0].name == "Total_Delivered_Order"
     assert len(fake_llm.call_history) == 1
+
+
+def test_generate_plan_normalizes_datasphere_operation_aliases(sample_metadata_and_profile):
+    meta, profile = sample_metadata_and_profile
+    aliased_plan = copy.deepcopy(DEFAULT_FIXTURE_PLAN)
+    aliased_plan["nodes"][0]["operation"] = "relational_dataset"
+    aliased_plan["nodes"][1]["operation"] = "aggregation"
+
+    plan = generate_plan(
+        requirement="Compute PO Average Processing Time",
+        metadata=meta,
+        profile=profile,
+        provider=FakeLLMProvider(responses=[json.dumps(aliased_plan)]),
+    )
+
+    assert plan.nodes[0].operation == "projection"
+    assert plan.nodes[1].operation == "measure"
 
 
 def test_planner_checker_retains_all_named_calculated_columns(sample_metadata_and_profile):
@@ -154,6 +173,7 @@ def test_generate_plan_retry_on_hallucinated_column(sample_metadata_and_profile)
     assert len(fake_llm.call_history) == 2
     # Second call prompt must cite the hallucinated column error
     assert "NON_EXISTENT_GHOST_COLUMN" in fake_llm.call_history[1]["user"]
+    assert "exact technical column available on its respective input" in fake_llm.call_history[1]["user"]
 
 
 def test_generate_plan_exhausts_retries_raises_error(sample_metadata_and_profile):

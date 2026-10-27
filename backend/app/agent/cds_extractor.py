@@ -121,6 +121,8 @@ class ExtractedMetadata(BaseModel):
                     parts.append(role)
                 if col.aggregation:
                     parts.append(f"agg:{col.aggregation}")
+                if col.label and col.label != col.name:
+                    parts.append(f"label:{col.label}")
                 col_strs.append(f"{col.name} ({', '.join(parts)})")
             if col_strs:
                 lines.append(f"  COLUMNS: {', '.join(col_strs)}")

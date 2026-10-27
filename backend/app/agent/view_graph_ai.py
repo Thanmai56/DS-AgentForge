@@ -220,11 +220,15 @@ Respond with ONLY the JSON array of operations to apply to this graph."""
             raw_resp = llm.generate(system_prompt=SYSTEM_PROMPT, user_prompt=user_prompt)
             raw_ops_list = _extract_json_array(raw_resp)
         except Exception as exc:
-            logger.warning("LLM call failed (%s), falling back to rule heuristic", exc)
+            raise RuntimeError(
+                f"Graph revision failed for provider {provider_name}; "
+                f"no heuristic fallback is permitted: {exc}"
+            ) from exc
 
-    # Fallback to heuristic parser
     if raw_ops_list is None:
-        raw_ops = _offline_heuristic_revision(graph, instruction)
+        raise RuntimeError(
+            f"Graph revision returned no valid JSON operations from provider {provider_name}."
+        )
     else:
         raw_ops = []
         for d in raw_ops_list:

@@ -164,7 +164,7 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
   entity,
   onClose,
 }) => {
-  const [selectedOperator, setSelectedOperator] = useState<string>('join');
+  const [selectedOperator, setSelectedOperator] = useState<string>('output');
 
   // Build the dynamic node layout matching Screenshot 2
   const { nodes, edges } = useMemo(() => {
@@ -172,7 +172,7 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
     const flowEdges: Edge[] = [];
 
     // Upstream input sources
-    const sources = entity.sources && entity.sources.length > 0 ? entity.sources : ['PRIMARY_SOURCE'];
+    const sources = entity.sources || [];
     const hasMultipleInputs = sources.length > 1;
 
     // Place input source cards on the left
@@ -185,8 +185,8 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
         data: {
           badgeNumber: sources.length - idx, // Matches Screenshot 2 badge numbering
           title: srcName,
-          fieldCount: Math.max(2, Math.floor(entity.fieldCount / Math.max(1, sources.length))),
-          cardinality: '0,1',
+          fieldCount: sources.length === 1 ? entity.fieldCount : 0,
+          cardinality: '',
           onSelect: () => setSelectedOperator(`input-${idx}`),
         },
       });
@@ -195,16 +195,17 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
     let currentX = 330;
     let lastNodeId = '';
 
-    // Join Operator if multiple inputs
-    if (hasMultipleInputs) {
+    // Only render operators represented by the supplied model plan.
+    if (hasMultipleInputs && entity.joins?.length) {
+      const joinType = entity.joins[0].joinType || 'inner';
       flowNodes.push({
         id: 'op-join',
         type: 'operator',
         position: { x: currentX, y: 120 },
         data: {
-          label: 'Inner Join',
+          label: `${joinType.toUpperCase()} Join`,
           operatorType: 'join',
-          subtitle: 'Inner Join',
+          subtitle: `${joinType.toUpperCase()} Join`,
           onSelect: () => setSelectedOperator('join'),
         },
       });
@@ -221,78 +222,64 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
 
       lastNodeId = 'op-join';
       currentX += 120;
-    } else {
+    } else if (sources.length === 1) {
       lastNodeId = 'input-0';
     }
 
-    // Projection Operator
-    flowNodes.push({
-      id: 'op-projection',
-      type: 'operator',
-      position: { x: currentX, y: 120 },
-      data: {
+    const operators: Array<{
+      id: string;
+      label: string;
+      operatorType: 'projection' | 'formula' | 'filter';
+      subtitle: string;
+    }> = [];
+    if (entity.fields.length) {
+      operators.push({
+        id: 'op-projection',
         label: 'Projection',
         operatorType: 'projection',
-        subtitle: 'Projection',
-        onSelect: () => setSelectedOperator('projection'),
-      },
-    });
-
-    flowEdges.push({
-      id: `e-${lastNodeId}-proj`,
-      source: lastNodeId,
-      target: 'op-projection',
-      type: 'smoothstep',
-      style: { stroke: '#0070F2', strokeWidth: 2 },
-    });
-    lastNodeId = 'op-projection';
-    currentX += 120;
-
-    // Formula Operator (fx)
-    flowNodes.push({
-      id: 'op-formula',
-      type: 'operator',
-      position: { x: currentX, y: 120 },
-      data: {
+        subtitle: `${entity.fields.length} output columns`,
+      });
+    }
+    if (entity.calculatedFields?.length) {
+      operators.push({
+        id: 'op-formula',
         label: 'Calculated Columns',
         operatorType: 'formula',
-        subtitle: 'Formulas (fx)',
-        onSelect: () => setSelectedOperator('formula'),
-      },
-    });
-
-    flowEdges.push({
-      id: `e-${lastNodeId}-formula`,
-      source: lastNodeId,
-      target: 'op-formula',
-      type: 'smoothstep',
-      style: { stroke: '#0070F2', strokeWidth: 2 },
-    });
-    lastNodeId = 'op-formula';
-    currentX += 120;
-
-    // Filter Operator
-    flowNodes.push({
-      id: 'op-filter',
-      type: 'operator',
-      position: { x: currentX, y: 120 },
-      data: {
+        subtitle: `${entity.calculatedFields.length} formula${entity.calculatedFields.length === 1 ? '' : 's'}`,
+      });
+    }
+    if (entity.filters?.length) {
+      operators.push({
+        id: 'op-filter',
         label: 'Filter',
         operatorType: 'filter',
-        subtitle: 'Filter',
-        onSelect: () => setSelectedOperator('filter'),
-      },
+        subtitle: `${entity.filters.length} condition${entity.filters.length === 1 ? '' : 's'}`,
+      });
+    }
+    operators.forEach((operator) => {
+      flowNodes.push({
+        id: operator.id,
+        type: 'operator',
+        position: { x: currentX, y: 120 },
+        data: {
+          label: operator.label,
+          operatorType: operator.operatorType,
+          subtitle: operator.subtitle,
+          onSelect: () => setSelectedOperator(operator.operatorType),
+        },
+      });
+      if (lastNodeId) {
+        flowEdges.push({
+          id: `e-${lastNodeId}-${operator.id}`,
+          source: lastNodeId,
+          target: operator.id,
+          type: 'smoothstep',
+          style: { stroke: '#0070F2', strokeWidth: 2 },
+        });
+      }
+      lastNodeId = operator.id;
+      currentX += 120;
     });
-
-    flowEdges.push({
-      id: `e-${lastNodeId}-filter`,
-      source: lastNodeId,
-      target: 'op-filter',
-      type: 'smoothstep',
-      style: { stroke: '#0070F2', strokeWidth: 2 },
-    });
-    lastNodeId = 'op-filter';
-    currentX += 120;
 
     // Output View Card
     flowNodes.push({
@@ -306,13 +293,15 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
       },
     });
 
-    flowEdges.push({
-      id: `e-${lastNodeId}-output`,
-      source: lastNodeId,
-      target: 'output-view',
-      type: 'smoothstep',
-      style: { stroke: '#0070F2', strokeWidth: 2 },
-    });
+    if (lastNodeId) {
+      flowEdges.push({
+        id: `e-${lastNodeId}-output`,
+        source: lastNodeId,
+        target: 'output-view',
+        type: 'smoothstep',
+        style: { stroke: '#0070F2', strokeWidth: 2 },
+      });
+    }
 
     return { nodes: flowNodes, edges: flowEdges };
   }, [entity]);
@@ -372,7 +361,7 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
             <div className="border-b border-[#E2E8F0] pb-2">
               <span className="text-[10px] font-mono font-bold uppercase text-[#64748B]">Operator Inspector</span>
               <h4 className="text-sm font-bold text-[#1D2D3E] mt-0.5 capitalize">
-                {selectedOperator === 'join' && 'Inner Join Configuration'}
+                {selectedOperator === 'join' && `${(entity.joins?.[0]?.joinType || 'inner').toUpperCase()} Join Configuration`}
                 {selectedOperator === 'projection' && 'Projection & Column Selection'}
                 {selectedOperator === 'formula' && 'Calculated Columns & KPI (fx)'}
                 {selectedOperator === 'filter' && 'Filter Conditions'}
@@ -385,14 +374,18 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
               <div className="space-y-3 text-xs">
                 <div>
                   <span className="text-[#64748B] block text-[11px]">Join Type</span>
-                  <span className="font-semibold text-[#0070F2]">Inner Join (1:1 / 0,1)</span>
+                  <span className="font-semibold text-[#0070F2]">
+                    {(entity.joins?.[0]?.joinType || 'inner').toUpperCase()} JOIN
+                  </span>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[#64748B] block text-[11px]">Join Condition:</span>
                   <div className="bg-[#FAFBFD] border border-[#CBD5E1] p-2 rounded font-mono text-[11px] text-[#1D2D3E]">
                     {entity.joins && entity.joins.length > 0
-                      ? `${entity.joins[0].leftSource}.${entity.joins[0].leftField} = ${entity.joins[0].rightSource}.${entity.joins[0].rightField}`
-                      : `${entity.sources[0] || 'T1'}.${entity.fields[0]?.name || 'ID'} = ${entity.sources[1] || 'T2'}.${entity.fields[0]?.name || 'ID'}`}
+                    ? entity.joins.map((join) =>
+                      `${join.leftSource}.${join.leftField} = ${join.rightSource}.${join.rightField}`,
+                    ).join(' AND ')
+                      : 'No join condition supplied by the modeling plan.'}
                   </div>
                 </div>
               </div>
@@ -426,17 +419,7 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
                       </pre>
                     </div>
                   ))
-                ) : (
-                  <div className="space-y-1">
-                    <span className="text-[#B45309] font-semibold text-[11px] flex items-center space-x-1">
-                      <span>fx</span>
-                      <span>CALCULATED_KPI</span>
-                    </span>
-                    <pre className="font-mono text-[10px] text-[#78350F] bg-[#FFFBEB] p-2 rounded border border-[#FDE68A]">
-                      ROUND(MEASURE_VALUE, 2)
-                    </pre>
-                  </div>
-                )}
+                ) : <p className="text-xs text-slate-500">No calculated fields supplied by the modeling plan.</p>}
               </div>
             )}
 
@@ -444,8 +427,9 @@ export const ViewInternalLineageModal: React.FC<ViewInternalLineageModalProps> =
               <div className="space-y-3 text-xs">
                 <span className="text-[#64748B] block text-[11px]">Filter Expressions:</span>
                 <div className="bg-[#FAFBFD] border border-[#CBD5E1] p-2 rounded font-mono text-[11px] text-[#1D2D3E] space-y-1">
-                  <div>"STATUS" != 'CANCELLED'</div>
-                  <div>AND "ACTIVE" = true</div>
+                  {entity.filters?.length ? entity.filters.map((filter) => <div key={filter}>{filter}</div>) : (
+                    <div className="text-slate-500">No filter conditions supplied by the modeling plan.</div>
+                  )}
                 </div>
               </div>
             )}

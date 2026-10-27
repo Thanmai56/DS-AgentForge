@@ -101,6 +101,7 @@ def test_cds_metadata_extractor_real_csn():
     assert "[VIEW] V_PO_FINAL_DELIVERY_APT" in compact
     assert "[FACT] F_PO_PROCESSING_TIME_APT" in compact
     assert "COLUMNS:" in compact
+    assert "label:Purchase Order Number" in compact
 
 
 def test_cds_metadata_extractor_excludes_declared_delta_entities():
@@ -258,8 +259,8 @@ def test_plan_checker_rejects_cycle():
     assert any("Cycle detected" in err for err in result.errors)
 
 
-def test_plan_checker_rejects_invalid_join_keys():
-    """Verify that Plan Checker catches join keys missing from left or right inputs."""
+def test_plan_checker_warns_for_join_keys_missing_from_input():
+    """Join-key mismatches should warn without blocking an otherwise usable plan."""
     metadata = parse_csn_metadata({
         "definitions": {
             "T1": {"kind": "entity", "elements": {"ORDER_ID": {"type": "cds.String"}}},
@@ -284,8 +285,9 @@ def test_plan_checker_rejects_invalid_join_keys():
     )
 
     result = check_plan(plan, metadata)
-    assert result.is_valid is False
-    assert any("NON_EXISTENT_KEY" in err for err in result.errors)
+    assert result.is_valid is True
+    assert not result.errors
+    assert any("NON_EXISTENT_KEY" in warning for warning in result.warnings)
 
 
 def test_plan_checker_validates_qualified_keys_in_multi_input_join():
@@ -350,14 +352,78 @@ def test_plan_checker_validates_qualified_keys_in_multi_input_join():
     assert result.is_valid is True, result.errors
 
 
+def test_plan_checker_uses_each_layer_inputs_exact_join_column_names():
+    metadata = parse_csn_metadata({
+        "definitions": {
+            "C_PURCHASEORDERITEM": {
+                "kind": "entity",
+                "elements": {
+                    "PurchaseOrder": {"type": "cds.String"},
+                    "PurchaseOrderItem": {"type": "cds.String"},
+                },
+            },
+            "ZI_EKESS": {
+                "kind": "entity",
+                "elements": {
+                    "Ebeln": {
+                        "type": "cds.String",
+                        "@EndUserText.label": "Purchase Order Number",
+                    },
+                    "Ebelp": {
+                        "type": "cds.String",
+                        "@EndUserText.label": "Purchase Order Item",
+                    },
+                    "Eindt": {"type": "cds.String"},
+                },
+            },
+        }
+    })
+    plan = Plan(nodes=[
+        PlanNode(
+            id="L1_C_PURCHASEORDERITEM",
+            operation="projection",
+            inputs=["C_PURCHASEORDERITEM"],
+            columns=["PurchaseOrder", "PurchaseOrderItem"],
+            reason="Project purchase order keys.",
+            layer="L1",
+        ),
+        PlanNode(
+            id="L1_ZI_EKESS",
+            operation="projection",
+            inputs=["ZI_EKESS"],
+            columns=["Ebeln", "Ebelp", "Eindt"],
+            reason="Project schedule-line keys and delivery date.",
+            layer="L1",
+        ),
+        PlanNode(
+            id="L3_SUPPLIER_PERFORMANCE",
+            operation="join",
+            inputs=["L1_C_PURCHASEORDERITEM", "L1_ZI_EKESS"],
+            columns=["PurchaseOrder", "PurchaseOrderItem", "Eindt"],
+            details=NodeDetails(
+                join_type="left",
+                on=[
+                    ["L1_C_PURCHASEORDERITEM.PurchaseOrder", "L1_ZI_EKESS.Ebeln"],
+                    ["L1_C_PURCHASEORDERITEM.PurchaseOrderItem", "L1_ZI_EKESS.Ebelp"],
+                ],
+            ),
+            reason="Join purchase order items to their schedule lines.",
+            layer="L3",
+        ),
+    ])
+
+    result = check_plan(plan, metadata)
+    assert result.is_valid is True, result.errors
+
+
 @pytest.mark.parametrize(
-    ("left_key", "expected_error"),
+    ("left_key", "expected_error", "is_valid"),
     [
-        ("T1.MISSING_KEY", "MISSING_KEY"),
-        ("UNKNOWN.ORDER_ID", "not one of the join inputs"),
+        ("T1.MISSING_KEY", "MISSING_KEY", True),
+        ("UNKNOWN.ORDER_ID", "not one of the join inputs", False),
     ],
 )
-def test_plan_checker_rejects_invalid_qualified_join_references(left_key, expected_error):
+def test_plan_checker_handles_invalid_qualified_join_references(left_key, expected_error, is_valid):
     metadata = parse_csn_metadata({
         "definitions": {
             "T1": {"kind": "entity", "elements": {"ORDER_ID": {"type": "cds.String"}}},
@@ -377,8 +443,9 @@ def test_plan_checker_rejects_invalid_qualified_join_references(left_key, expect
     ])
 
     result = check_plan(plan, metadata)
-    assert result.is_valid is False
-    assert any(expected_error in error for error in result.errors)
+    assert result.is_valid is is_valid
+    reported = result.errors + result.warnings
+    assert any(expected_error in message for message in reported)
 
 
 def test_plan_checker_still_rejects_case_mismatched_columns():

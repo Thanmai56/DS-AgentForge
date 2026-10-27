@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Optional
 import logging
 
 from app.agent.plan_models import Plan
@@ -149,9 +149,15 @@ def generate_plan(
 
         # 2. Parse JSON
         try:
-            plan_dict = json.loads(cleaned_json_str)
+            plan_dict = _normalize_operation_aliases(_parse_planner_json(cleaned_json_str))
         except json.JSONDecodeError as exc:
-            last_errors = [f"JSON syntax error: {exc.msg} at line {exc.lineno}"]
+            context_start = max(0, exc.pos - 80)
+            context_end = min(len(cleaned_json_str), exc.pos + 80)
+            context = cleaned_json_str[context_start:context_end].replace("\n", "\\n")
+            last_errors = [
+                f"JSON syntax error: {exc.msg} at line {exc.lineno}, "
+                f"column {exc.colno} near '{context}'"
+            ]
             attempt_log.json_parse_status = "error"
             attempt_log.errors = list(last_errors)
             if inspection_trace:
@@ -200,12 +206,133 @@ def generate_plan(
     )
 
 
+def _normalize_operation_aliases(plan_data: Any) -> Any:
+    """Map common Datasphere operator labels to the planner's canonical operations."""
+    if not isinstance(plan_data, dict):
+        return plan_data
+
+    nodes = plan_data.get("nodes")
+    if not isinstance(nodes, list):
+        return plan_data
+
+    operation_aliases = {
+        "relational_dataset": "projection",
+        "relational dataset": "projection",
+        "aggregation": "measure",
+    }
+
+    wrapper_id_aliases = {
+        node.get("id"): re.sub(
+            r"^L1_(.+)_Wrapper$",
+            r"WRAP_\1",
+            node.get("id"),
+            flags=re.IGNORECASE,
+        )
+        for node in nodes
+        if isinstance(node, dict)
+        and isinstance(node.get("id"), str)
+        and re.match(r"^L1_(.+)_Wrapper$", node["id"], flags=re.IGNORECASE)
+    }
+
+    def rewrite_wrapper_reference(value: Any) -> Any:
+        if isinstance(value, str):
+            rewritten = wrapper_id_aliases.get(value, value)
+            for old_id, new_id in wrapper_id_aliases.items():
+                rewritten = re.sub(
+                    rf"(?<![A-Za-z0-9_]){re.escape(old_id)}(?=\.)",
+                    new_id,
+                    rewritten,
+                )
+            return rewritten
+        if isinstance(value, list):
+            return [rewrite_wrapper_reference(item) for item in value]
+        if isinstance(value, dict):
+            return {key: rewrite_wrapper_reference(item) for key, item in value.items()}
+        return value
+
+    if wrapper_id_aliases:
+        for node in nodes:
+            if isinstance(node, dict):
+                rewritten = rewrite_wrapper_reference(node)
+                node.clear()
+                node.update(rewritten)
+
+    def _format_value(value: Any) -> str:
+        if value is None:
+            return "NULL"
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, str):
+            escaped = value.replace("'", "''")
+            return f"'{escaped}'"
+        return str(value)
+
+    def _rule_strings(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            result: list[str] = []
+            for item in value:
+                result.extend(_rule_strings(item))
+            return result
+        if isinstance(value, dict):
+            field = value.get("field") or value.get("column") or value.get("left")
+            operator = value.get("op") or value.get("operator")
+            if field and operator and "value" in value:
+                return [f'"{field}" {operator} {_format_value(value["value"])}']
+            expression = value.get("expression") or value.get("sql")
+            if isinstance(expression, str):
+                return [expression]
+        return []
+
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        operation = node.get("operation")
+        if isinstance(operation, str):
+            canonical = operation.strip().lower()
+            node["operation"] = operation_aliases.get(canonical, canonical)
+        details = node.setdefault("details", {})
+        if not isinstance(details, dict):
+            details = {}
+            node["details"] = details
+
+        for target, aliases in {
+            "conditions": ("conditions", "filters", "where"),
+            "formulas": ("formulas", "calculations"),
+        }.items():
+            values = _rule_strings(details.get(target, []))
+            for alias in aliases:
+                for container in (node, details):
+                    values.extend(_rule_strings(container.get(alias)))
+            normalized_values = [
+                value.strip()
+                for value in values
+                if value.strip()
+            ]
+            details[target] = list(dict.fromkeys(normalized_values))
+            if target == "conditions":
+                details["filters"] = list(details[target])
+
+        if isinstance(node.get("condition"), str) and node["condition"].strip():
+            details["condition"] = node["condition"].strip()
+            details["conditions"] = list(dict.fromkeys([
+                *details.get("conditions", []), details["condition"]
+            ]))
+        if isinstance(node.get("formula"), str) and node["formula"].strip():
+            details["formula"] = node["formula"].strip()
+            details["formulas"] = list(dict.fromkeys([
+                *details.get("formulas", []), details["formula"]
+            ]))
+    return plan_data
+
+
 def _extract_json_string(text: str) -> str:
     """Extracts JSON substring, stripping markdown code fences if present."""
     text = text.strip()
 
     # If wrapped in markdown ```json ... ```
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, flags=re.IGNORECASE)
     if match:
         return match.group(1).strip()
 
@@ -222,6 +349,60 @@ def _extract_json_string(text: str) -> str:
     return text
 
 
+def _parse_planner_json(text: str) -> Any:
+    """Parse planner JSON, tolerating only harmless trailing commas."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as original_error:
+        repaired = _remove_json_trailing_commas(text)
+        if repaired == text:
+            raise
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            raise original_error
+
+
+def _remove_json_trailing_commas(text: str) -> str:
+    """Remove commas immediately before } or ], without touching JSON strings."""
+    output: list[str] = []
+    in_string = False
+    escaped = False
+    index = 0
+
+    while index < len(text):
+        char = text[index]
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            in_string = True
+            output.append(char)
+            index += 1
+            continue
+
+        if char == ",":
+            next_index = index + 1
+            while next_index < len(text) and text[next_index].isspace():
+                next_index += 1
+            if next_index < len(text) and text[next_index] in "}]":
+                index += 1
+                continue
+
+        output.append(char)
+        index += 1
+
+    return "".join(output)
+
+
 def _build_retry_prompt(original_prompt: str, errors: list[str]) -> str:
     """Builds the retry feedback prompt showing what went wrong."""
     error_list = "\n".join(f"- {err}" for err in errors)
@@ -230,5 +411,9 @@ def _build_retry_prompt(original_prompt: str, errors: list[str]) -> str:
         f"CRITICAL: Your previous output failed validation with the following error(s):\n"
         f"{error_list}\n\n"
         f"Please correct these errors. Make sure you use ONLY tables and columns from SOURCE METADATA, "
-        f"ensure all join keys exist, eliminate any dependency cycles, and return ONLY valid JSON."
+        f"ensure each join key uses the exact technical column available on its respective input "
+        f"(use metadata labels to identify equivalent columns), eliminate any dependency cycles. "
+        f"Return ONLY machine-parseable JSON: escape double quotes inside formula strings, "
+        f"prefer bare technical column names in formulas, use single quotes for SQL string "
+        f"literals, and do not emit trailing commas."
     )

@@ -212,7 +212,12 @@ def create_plan(req: GeneratePlanRequest) -> GeneratePlanResponse:
         "updated_at": now_iso,
     }
 
-    all_warnings = list(metadata.parsing_warnings) + list(sample_result.warnings)
+    plan_check = check_plan(plan, metadata)
+    all_warnings = (
+        list(metadata.parsing_warnings)
+        + list(sample_result.warnings)
+        + plan_check.warnings
+    )
 
     return GeneratePlanResponse(
         plan_id=plan_id,

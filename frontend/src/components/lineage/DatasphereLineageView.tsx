@@ -49,6 +49,8 @@ export interface LineageNodeData {
   sources?: string[];
   joins?: any[];
   calculatedFields?: any[];
+  filters?: string[];
+  groupBy?: string[];
   description?: string;
   onSelectNode: (data: LineageNodeData) => void;
 }

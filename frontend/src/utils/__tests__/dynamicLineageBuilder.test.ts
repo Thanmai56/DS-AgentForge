@@ -151,12 +151,35 @@ describe('schemaCompressor - Zero Hardcoding Tests', () => {
       source: 'MBEW',
       target: 'V_MBEW_DIM',
     });
+
     expect(lineage.warnings).toContain(
       'Source "MBEW" is referenced by an uploaded view but its schema was not uploaded.',
     );
     expect(lineage.nodes.every((node) =>
       node.fields.every((field) => field.name.toUpperCase() !== 'TEST'),
     )).toBe(true);
+  });
+
+  it('recognizes Datasphere ANALYTICAL_FACT modeling patterns', () => {
+    const [fact] = compressAndExtractSchema({
+      definitions: {
+        SUPPLIER_PERFORMANCE_SVK: {
+          kind: 'entity',
+          '@ObjectModel.modelingPattern': { '#': 'ANALYTICAL_FACT' },
+          elements: {
+            PurchaseOrder: { type: 'cds.String', length: 10 },
+          },
+          query: {
+            SELECT: {
+              from: { ref: ['WRAP_PURCHASEORDER'], as: 'WRAP_PURCHASEORDER' },
+              columns: [{ ref: ['WRAP_PURCHASEORDER', 'PurchaseOrder'] }],
+            },
+          },
+        },
+      },
+    });
+
+    expect(fact.kind).toBe('fact');
   });
 
   it('omits TEST columns from uploaded table column arrays', () => {

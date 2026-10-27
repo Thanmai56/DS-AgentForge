@@ -106,7 +106,10 @@ def synthesize_datasphere_views(
     other_tables = [t for t in tables_meta if t["name"] != primary_fact["name"]]
 
     join_operators = _build_join_operators(primary_fact, other_tables, confirmed_associations)
-    filter_operators = _build_filter_operators(primary_fact)
+    filter_operators = _build_filter_operators(
+        primary_fact,
+        parsed_requirement=parsed_requirement,
+    )
     l2_proj_cols = _build_l2_projection_columns(primary_fact, other_tables)
     l2_sources = [
         {"alias": f"V_STG_{primary_fact['name']}", "object_name": f"V_STG_{primary_fact['name']}", "object_type": "view"},
@@ -364,31 +367,45 @@ def _build_join_operators(primary_fact: dict, other_tables: list,
     return operators
 
 
-def _build_filter_operators(primary_fact: dict) -> list[dict]:
-    """Build filter operator definitions for L2 core view."""
-    cols = primary_fact.get("columns", [])
-    status_col = next((c["name"] for c in cols if any(kw in c["name"].upper() for kw in ("STATUS", "FLAG", "ACTIVE", "DELETED"))), None)
-    date_col = next((c["name"] for c in cols if "DATE" in c["name"].upper() or c.get("semantic_role") == "date"), None)
-    first_col = cols[0]["name"] if cols else "ID"
-
-    if status_col:
-        expr = f'"{status_col}" != \'CANCELLED\''
-        rationale = f"Exclude cancelled/inactive records based on {status_col} column"
-    elif date_col:
-        expr = f'"{date_col}" >= \'2023-01-01\''
-        rationale = f"Limit to recent data based on {date_col} column"
-    else:
-        expr = f'"{first_col}" IS NOT NULL'
-        rationale = "Exclude null key records"
+def _build_filter_operators(
+    primary_fact: dict,
+    parsed_requirement: dict[str, Any] | None = None,
+) -> list[dict]:
+    """Build only filters explicitly supplied by the requirement."""
+    del primary_fact
+    requirement = parsed_requirement or {}
+    raw_filters = [
+        *(
+            requirement.get("filters", [])
+            if isinstance(requirement.get("filters", []), list)
+            else [requirement.get("filters")]
+        ),
+        *(
+            requirement.get("conditions", [])
+            if isinstance(requirement.get("conditions", []), list)
+            else [requirement.get("conditions")]
+        ),
+        *(
+            requirement.get("filter", [])
+            if isinstance(requirement.get("filter", []), list)
+            else [requirement.get("filter")]
+        ),
+    ]
+    if isinstance(raw_filters, str):
+        raw_filters = [raw_filters]
+    if not isinstance(raw_filters, list):
+        return []
 
     return [
         {
             "op": "filter",
-            "id": "filter_active_records",
-            "name": "Filter_Active_Records",
-            "expression": expr,
-            "rationale": rationale,
+            "id": f"filter_requirement_{index + 1}",
+            "name": f"Filter_Requirement_{index + 1}",
+            "expression": expression.strip(),
+            "rationale": "Explicit condition from the modeling requirement.",
         }
+        for index, expression in enumerate(raw_filters)
+        if isinstance(expression, str) and expression.strip()
     ]
 
 
